@@ -1986,8 +1986,10 @@ void BLE_TASK(void *parameters)
     vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 }
+
 void DimerTask(void *parameters)
 {
+  bool firstRun = true;
   vTaskDelay(1000);
   for (;;)
   {
@@ -2005,7 +2007,21 @@ void DimerTask(void *parameters)
           sameVal++;
       }
       if (sameVal == 7)
-        DimValChanged = false;
+      {
+        if (DimValChanged)
+        {
+          DimValChanged = false;
+          if (!firstRun)
+          {
+            Serial.println("Dimmer:saveStatesToFile");
+            saveStatesToFile();
+          }
+          else
+          {
+            firstRun = false;
+          }
+        }
+      }
 
       vTaskDelay(10 / portTICK_RATE_MS);
     }
