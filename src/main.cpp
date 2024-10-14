@@ -49,7 +49,7 @@
 // 2.0.7/4.0.7 increasing tasks ram by 1KB to prevent crashing : not tested
 // String Version = "4.0.7"; 24V version
 // 2.0.8 adding save to file for state recovery after crashes
-String Version = "2.0.8";
+String Version = "2.0.9";
 //========Update
 #include "Update.h"
 #include "AESLib.h"
@@ -334,6 +334,8 @@ uint8_t BattLowPrcntDimers = 0b0000000;
 float BattCriticalPrcnt = 10.0;
 uint16_t BattCriticalPrcntRelays = 0b0000000000000000;
 uint8_t BattCriticalPrcntDimers = 0b0000000;
+//----------------------GAS
+int gasRelay;
 //----------------------Gyro
 String GyroOriantation = "XY00";
 LIS3DH myIMU; // Default constructor is I2C, addr 0x19.
@@ -1898,6 +1900,15 @@ void MainStringProcessTask(void *parameters)
     {
       sendConfig();
     }
+    else if (strncmp(mainRxStr, "GasRelay=", 9) == 0)
+    {
+      gasRelay = (int)atoi(mainRxStr + 9);
+      EEPROM.writeInt(E2ADD.gasRelaySave, gasRelay);
+      EEPROM.commit();
+      sprintf(str, "show.txt=\"GasRelay=%d\"\xFF\xFF\xFF", gasRelay);
+      Serial.println(str);
+      SendToAll(str);
+    }
     else
     {
       Serial.println(mainRxStr);
@@ -2588,7 +2599,57 @@ void setup433()
     }
   }
 }
-
+void GasTask(void *parameters)
+{
+  vTaskDelay(pdTICKS_TO_MS(500));
+  if (gasRelay < 0 || gasRelay > 16)
+  {
+    gasRelay = 16;
+    EEPROM.write(E2ADD.gasRelaySave, gasRelay);
+    EEPROM.commit();
+  }
+  for (;;)
+  {
+    if (a2 > 20)
+    {
+      if (gasRelay >= 1 && gasRelay <= 12)
+      {
+        if (relState_0_15(gasRelay - 1) == true)
+        {
+          char str[8];
+          sprintf(str, "sw%d\n", gasRelay);
+          Serial.print(String("GAS:") + String(str));
+          sendCmndToMainStringProcessorTask(str);
+        }
+      }
+      else if (gasRelay >= 13 && gasRelay <= 16)
+      {
+        if (relState_0_15(gasRelay - 1) == false)
+        {
+          char str[8];
+          sprintf(str, "sw%d\n", gasRelay);
+          Serial.print(String("GAS:") + String(str));
+          sendCmndToMainStringProcessorTask(str);
+        }
+      }
+    }
+    else
+    {
+      if (gasRelay >= 13 && gasRelay <= 16)
+      {
+        if (relState_0_15(gasRelay - 1) == true)
+        {
+          char str[8];
+          sprintf(str, "sw%d\n", gasRelay);
+          Serial.print(String("GAS:") + String(str));
+          sendCmndToMainStringProcessorTask(str);
+        }
+      }
+    }
+    Serial.println(a2);
+    vTaskDelay(pdTICKS_TO_MS(1000));
+  }
+}
 void setup()
 {
   Serial.begin(115200);
@@ -2623,6 +2684,7 @@ void setup()
   Serial.println("Version:" + Version);
   EEPROM.begin(512);
   loadSavedValue();
+  Serial.println("GasRelay:" + String(gasRelay));
   Serial.println("BLE PASS:" + String(blePass));
   bleSetPass(blePass);
   initADC();
@@ -2714,6 +2776,13 @@ void setup()
       NULL,
       3,
       NULL);
+  xTaskCreate(
+      GasTask,
+      "GasTask",
+      3 * 1024,
+      NULL,
+      3,
+      NULL);
 // xTaskCreate(
 //     ramMonitorTask,
 //     "ramMonitorTask",
@@ -2729,6 +2798,7 @@ void loop()
 }
 void loadSavedValue()
 {
+  gasRelay = EEPROM.readInt(E2ADD.gasRelaySave);
   BatteryLowPrcnt = EEPROM.readFloat(E2ADD.lowVoltageSave);
   BatteryLowPrcntRelays = EEPROM.readInt(E2ADD.lowVoltageRelaysSave);
   BattLowPrcntDimers = EEPROM.readInt(E2ADD.lowVoltageDimersSave);

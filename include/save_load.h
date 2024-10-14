@@ -6,7 +6,7 @@
 #define ADDRESS EEPROM_OFFSET + FLOAT_SIZE
 #define E2PROM_FIRST_TIME_RUN_VAL 3825 // some random numbers
 #define E2PROM_NOT_FIRST_TIME_RUN_VAL 8360
-#define RKO 512           // remoteKeyOfset
+#define RKO 512          // remoteKeyOfset
 #define RDS (64 * 2 * 2) // remote data size:  64bit *2 edge * Size(uint16_t)
 
 struct EEpromAdd
@@ -44,6 +44,7 @@ struct EEpromAdd
     int criticalVoltageSave = ADDRESS * 79;
     int criticalVoltageRelaysSave = ADDRESS * 80;
     int criticalVoltageDimersSave = ADDRESS * 81;
+    int gasRelaySave = ADDRESS * 82;
 
     int remoteKeysAddress[32] =
         {
