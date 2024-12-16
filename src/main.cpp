@@ -50,7 +50,7 @@
 // String Version = "4.0.7"; 24V version
 // 2.0.8 adding save to file for state recovery after crashes
 // 2.1.0 deisabling ampermeter disconnecting
-String Version = "2.1.0";
+String Version = "2.1.1";
 //========Update
 #include "Update.h"
 #include "AESLib.h"
@@ -1987,7 +1987,6 @@ void BLE_TASK(void *parameters)
     vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 }
-
 void DimerTask(void *parameters)
 {
   bool firstRun = true;
@@ -2314,6 +2313,26 @@ void BatteryTask(void *parameters)
   String str = myBattery.SelectBatteryAcordingToFullVoltage((int)battFullVoltage);
   Serial.println("Battery init: " + str);
 
+  if (amp1 > 200)
+  {
+    if (!ampSenisConnected)
+    {
+      SendToAll("XrouteAlarm=Amp Meter Connected !\xFF\xFF\xFF");
+      ampSenisConnected = true;
+      myBattery.setPercent(myBattery.getBtPerV());
+    }
+    b = myBattery.getPercent() * 100;
+  }
+  else
+  {
+    if (ampSenisConnected)
+    {
+      SendToAll("XrouteAlarm=No Amp Meter!\xFF\xFF\xFF");
+      ampSenisConnected = false;
+    }
+    b = constrain(myBattery.btPerV, 0, 1) * 100;
+  }
+
   for (;;)
   {
     if (UpdatingFlg)
@@ -2322,27 +2341,17 @@ void BatteryTask(void *parameters)
     myBattery.loop(v, a1, (v - battEmptyVoltage) / (battFullVoltage - battEmptyVoltage));
 
     // it means eather sensor is connected or charging is lokily is under +40Amps. so need to decet sensor some how else later
-    if (amp1 > 200)
+
+    if (ampSenisConnected)
     {
-      if (!ampSenisConnected)
-      {
-        SendToAll("XrouteAlarm=Amp Meter Connected !\xFF\xFF\xFF");
-        ampSenisConnected = true;
-        myBattery.setPercent(myBattery.getBtPerV());
-      }
+      myBattery.setPercent(myBattery.getBtPerV());
       b = myBattery.getPercent() * 100;
     }
-    /*I disabled auto amper meter disconnect detector*/
-    /*
+
     else
     {
-      if (ampSenisConnected)
-      {
-        SendToAll("XrouteAlarm=Amp Meter Disconnected !\xFF\xFF\xFF");
-        ampSenisConnected = false;
-      }
       b = constrain(myBattery.btPerV, 0, 1) * 100;
-    }*/
+    }
 
     // Serial.println(b);
 
@@ -2666,8 +2675,8 @@ void GasTask(void *parameters)
         }
       }
     }
-    
-    //Serial.println(a2);
+
+    // Serial.println(a2);
     vTaskDelay(pdTICKS_TO_MS(1000));
   }
 }
