@@ -50,7 +50,7 @@
 // String Version = "4.0.7"; 24V version
 // 2.0.8 adding save to file for state recovery after crashes
 // 2.1.0 deisabling ampermeter disconnecting
-String Version = "2.1.1";
+String Version = "2.1.2";
 //========Update
 #include "Update.h"
 #include "AESLib.h"
@@ -337,6 +337,125 @@ uint16_t BattCriticalPrcntRelays = 0b0000000000000000;
 uint8_t BattCriticalPrcntDimers = 0b0000000;
 //----------------------GAS
 int gasRelay;
+//----------------------TEST
+void sendCmndToMainStringProcessorTask(char *str);
+TaskHandle_t led_indicator_task_handle;
+TaskHandle_t GasTask_handle;
+TaskHandle_t DimerTask_handle;
+TaskHandle_t MainStringProcessTask_handle;
+
+void testModeSelectorTask(void *parameters)
+{
+#define THRESHULD 150
+#define KEY_PRESSED (pt100 < THRESHULD)
+
+  bool testFlg = false;
+  vTaskDelay(pdMS_TO_TICKS(1000));
+
+  if (KEY_PRESSED)
+  {
+    for (int i = 0; i < 5; i++)
+    {
+      ws2812Blink(COLOR_GREEN | COLOR_BLUE);
+      if (!KEY_PRESSED)
+      {
+        testFlg = true;
+        break;
+      }
+    }
+  }
+
+  if (testFlg)
+  {
+    Serial.println("===================>TEST MODE<================");
+    vTaskDelete(led_indicator_task_handle);
+    vTaskDelete(GasTask_handle);
+    vTaskDelete(DimerTask_handle);
+    vTaskDelete(MainStringProcessTask_handle);
+
+    while (1)
+    {
+      ws2812Blink(COLOR_ORANG);
+      while (1)
+      {
+        for (int i = 1; i <= 16; i++)
+        {
+          RELAYS.relPos |= (1UL << RELAYS.cnfgLookup[i - 1]);
+          setRelay(RELAYS.relPos, v / 10);
+          vTaskDelay(pdMS_TO_TICKS(100));
+          RELAYS.relPos &= ~(1UL << RELAYS.cnfgLookup[i - 1]);
+          setRelay(RELAYS.relPos, v / 10);
+          vTaskDelay(pdMS_TO_TICKS(100));
+          if (KEY_PRESSED)
+          {
+            RELAYS.relPos = 0X0000;
+            setRelay(RELAYS.relPos, v / 10);
+            break;
+          }
+        }
+        if (KEY_PRESSED)
+        {
+          break;
+        }
+      }
+      ws2812Blink(COLOR_GREEN | COLOR_BLUE);
+      while (1)
+      {
+        RELAYS.relPos = 0xFFFF;
+        setRelay(RELAYS.relPos, v / 10);
+        vTaskDelay(pdMS_TO_TICKS(200));
+        RELAYS.relPos = 0X0000;
+        setRelay(RELAYS.relPos, v / 10);
+        vTaskDelay(pdMS_TO_TICKS(200));
+        if (KEY_PRESSED)
+        {
+          break;
+        }
+      }
+      ws2812Blink(COLOR_RED | COLOR_BLUE);
+      while (1)
+      {
+        for (int i = 1; i <= 7; i++)
+        {
+          DimValChanged = true;
+          dimTmp[i - 1] = 32768 * 50 / 255 * dimLimit[i - 1];
+          vTaskDelay(pdMS_TO_TICKS(500));
+          DimValChanged = true;
+          dimTmp[i - 1] = 32768 * 0 / 255 * dimLimit[i - 1];
+          vTaskDelay(pdMS_TO_TICKS(500));
+          if (KEY_PRESSED)
+          {
+            break;
+          }
+        }
+        if (KEY_PRESSED)
+        {
+          break;
+        }
+      }
+      ws2812Blink(COLOR_WHITE);
+      while (1)
+      {
+        float val;
+        val = 32768 * constrain((3000 - clnWtr) / 3500, 0, 1);
+        ledcWrite(channelTable[0], val);
+        val = 32768 * constrain((3000 - drtWtr) / 3500, 0, 1);
+        ledcWrite(channelTable[1], val);
+        val = 32768 * constrain((3000 - gryWtr) / 3500, 0, 1);
+        ledcWrite(channelTable[2], val);
+        // Serial.print(String("clnWtr:") + String(clnWtr));
+        // Serial.print(String("drtWtr:") + String(drtWtr));
+        // Serial.println(String("gryWtr:") + String(gryWtr));
+        vTaskDelay(pdMS_TO_TICKS(10));
+        if (KEY_PRESSED)
+        {
+          break;
+        }
+      }
+    }
+  }
+  vTaskDelete(NULL);
+}
 //----------------------Gyro
 String GyroOriantation = "XY00";
 LIS3DH myIMU; // Default constructor is I2C, addr 0x19.
@@ -1748,7 +1867,7 @@ void MainStringProcessTask(void *parameters)
       uint32_t flashSize = ESP.getFlashChipSize();
       // Convert flash size from bytes to megabytes
       float flashSizeMB = (float)flashSize / (1024.0 * 1024.0);
-      Serial.println("-----Flash info-----"); // for padding problem i altered the file size . change it if the update goes to 100% and not finish
+      Serial.println("----------Flash info----------"); // for padding problem i altered the file size . change it if the update goes to 100% and not finish
       Serial.print("FlashSize:");
       Serial.print(flashSizeMB);
       Serial.println("MB");
@@ -1842,6 +1961,7 @@ void MainStringProcessTask(void *parameters)
         {
           SerialBT.print("\nFailed !\xFF\xFF\xFF");
           SerialBT.println(Update.errorString());
+          ESP.restart();
         }
       }
       else
@@ -2427,207 +2547,6 @@ void sendCmndToMainStringProcessorTask(char *str)
 }
 // END----------------------------------------------TASKS
 //-------------------------------------------------FUNCTIONS
-void generate433(uint16_t *Times)
-{
-#define SigPin 22
-#define SIG_HIGH() digitalWrite(SigPin, 1)
-#define SIG_LOW() digitalWrite(SigPin, 0)
-#define SIG_TOGGLE() digitalWrite(SigPin, !digitalRead(SigPin))
-  int edgCntr = 0;
-  while (Times[edgCntr] != 0)
-    edgCntr++;
-
-  pinMode(SigPin, OUTPUT);
-  SIG_HIGH();
-  bool flg = 1;
-  for (int i = 0; i < edgCntr; i++)
-  {
-    unsigned long time;
-    time = micros();
-    while ((micros() - time) < (Times[i] - 1))
-    {
-    }
-    if (i != (edgCntr - 1))
-      flg = !flg;
-    digitalWrite(SigPin, flg);
-  }
-}
-int getRemoteLen(uint16_t *data)
-{
-  int cnt = 0;
-  while (data[cnt] != 0)
-    cnt++;
-  return cnt;
-}
-void saveRemoteKey(uint16_t *times, int key)
-{
-  int count = getRemoteLen(times);
-  for (int i = 0; i < count; i++)
-  {
-    EEPROM.writeUInt(E2ADD.remoteKeysAddress[key + i * 2], times[i]);
-  }
-  EEPROM.commit();
-}
-void loadRemoteKey(uint16_t *times, int key)
-{
-  int i = 0;
-  do
-  {
-    times[i] = EEPROM.readUInt(E2ADD.remoteKeysAddress[key + i * 2]);
-  } while (times[i++] != 0);
-}
-void timeMeasure(uint16_t *keyData)
-{
-#define DataPin 27
-#define TimeOutUs 100000
-#define MaxTimeTorolant 0.75
-#define SIZE (64 * 2)
-  pinMode(DataPin, INPUT);
-#define WaitFor_1() while (!digitalRead(DataPin))
-#define WaitFor_0() while (digitalRead(DataPin))
-  Serial.println("Press Key : o");
-  while (1)
-  {
-    if (Serial.read() == 'o')
-    {
-      break;
-    }
-  }
-  unsigned long maxTime = 0;
-  //===============================Max time measure
-  uint16_t Times[SIZE];
-  WaitFor_1();
-  WaitFor_0();
-  for (int i = 0; i < SIZE; i++)
-  {
-    unsigned long time = micros();
-    WaitFor_1();
-    time = micros() - time;
-    if (time > TimeOutUs)
-    {
-      return;
-    }
-
-    if (time > maxTime)
-      maxTime = time;
-    WaitFor_0();
-  }
-  Serial.println("Max Time: ");
-  Serial.println(maxTime);
-  //==============================waite for maxtime to happen
-  WaitFor_0();
-  WaitFor_1();
-  while (1)
-  {
-    unsigned long time;
-    unsigned long t1;
-    if (digitalRead(DataPin))
-    {
-      t1 = micros();
-    }
-    time = micros() - t1;
-    if (time > (maxTime * MaxTimeTorolant))
-    {
-      break;
-    }
-  }
-  //==============================count Bits and TimeSave
-  int bitCnt = 0;
-  int edgCntr = 0;
-  while (1)
-  {
-    unsigned long lowTime, t1L;
-    unsigned long highTime, t1h;
-    WaitFor_1();
-    t1h = micros();
-    WaitFor_0();
-    Times[edgCntr++] = micros() - t1h;
-    t1L = micros();
-    bitCnt++;
-    if (bitCnt > SIZE)
-    {
-      Serial.println("Error in Bit Size");
-      return;
-    }
-
-    WaitFor_1()
-    {
-      lowTime = micros() - t1L;
-      if (lowTime > (maxTime * MaxTimeTorolant))
-        break;
-    }
-    Times[edgCntr++] = micros() - t1L;
-
-    if (lowTime > (maxTime * MaxTimeTorolant))
-      break;
-  }
-  Times[edgCntr - 1] = maxTime;
-  Times[edgCntr] = 0; // end of data
-                      //=====================================returns valid datas
-  for (int i = 0; i < edgCntr; i++)
-  {
-    keyData[i] = Times[i];
-  }
-  return; // END
-  //========================================GenerateSignal
-  WaitFor_1();
-  while (1)
-  {
-    if (Serial.read() == 's')
-    {
-      Serial.println("Sending 433");
-      for (int i = 0; i < 10; i++)
-      {
-        generate433(Times);
-      }
-      Serial.println("Done");
-    }
-    if (Serial.read() == 'a')
-    {
-      break;
-    }
-  }
-}
-void setup433()
-{
-  Serial.begin(115200);
-  Serial.println("Starting...");
-  EEPROM.begin(8704);
-
-  while (1)
-  {
-    uint16_t key1Data[64 * 2];
-    char c = Serial.read();
-
-    if (c == 'r')
-    {
-      Serial.println("Start Decoding ...");
-      timeMeasure(key1Data);
-      Serial.println("Finished decoding.");
-    }
-    if (c == 's')
-    {
-      Serial.println("Save Start");
-      saveRemoteKey(key1Data, 0);
-      Serial.println("Save Finish");
-    }
-    if (c == 'l')
-    {
-      Serial.println("Load Start");
-      loadRemoteKey(key1Data, 0);
-      Serial.println("Load Finish");
-    }
-    if (c == 'a')
-    {
-      Serial.println("Sending Start");
-      for (int i = 0; i < 10; i++)
-      {
-        generate433(key1Data);
-      }
-      Serial.println("Sendin Finish");
-    }
-  }
-}
 void GasTask(void *parameters)
 {
   vTaskDelay(pdTICKS_TO_MS(500));
@@ -2756,7 +2675,7 @@ void setup()
       5 * 1024, // stack size
       NULL,     // task argument
       3,        // task priority
-      NULL);
+      &MainStringProcessTask_handle);
   xTaskCreate(
       MeasurmentTask,
       "MeasurmentTask",
@@ -2770,7 +2689,7 @@ void setup()
       2.5 * 1024, // stack size
       NULL,       // task argument
       4,          // task priority
-      NULL);
+      &DimerTask_handle);
   xTaskCreate(
       adcReadingTask,
       "ADC READING TASK",
@@ -2784,7 +2703,7 @@ void setup()
       3 * 1024, // stack size
       NULL,     // task argument
       4,        // task priority
-      NULL);
+      &led_indicator_task_handle);
   xTaskCreate(
       OVR_CRNT_PRTCT_TASK,
       "OVR_CRNT_PRTCT_TASK",
@@ -2812,7 +2731,15 @@ void setup()
       3 * 1024,
       NULL,
       3,
+      &GasTask_handle);
+  xTaskCreate(
+      testModeSelectorTask,
+      "testModeSelectorTask",
+      3 * 1024,
+      NULL,
+      3,
       NULL);
+
 // xTaskCreate(
 //     ramMonitorTask,
 //     "ramMonitorTask",
