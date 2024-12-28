@@ -418,10 +418,10 @@ void testModeSelectorTask(void *parameters)
         for (int i = 1; i <= 7; i++)
         {
           DimValChanged = true;
-          dimTmp[i - 1] = 32768 * 100 / 255 ;
+          dimTmp[i - 1] = 32768 * 100 / 255 * dimLimit[i - 1];
           vTaskDelay(pdMS_TO_TICKS(500));
           DimValChanged = true;
-          dimTmp[i - 1] = 32768 * 0 / 255 ;
+          dimTmp[i - 1] = 32768 * 0 / 255 * dimLimit[i - 1];
           vTaskDelay(pdMS_TO_TICKS(100));
           if (KEY_PRESSED)
           {
@@ -434,14 +434,17 @@ void testModeSelectorTask(void *parameters)
         }
       }
       ws2812Blink(COLOR_WHITE);
+      float aa = clnWtr;
+      float bb = drtWtr;
+      float cc = gryWtr;
       while (1)
       {
         float val;
-        val = 32768 * constrain((3000 - clnWtr) / 3500, 0, 1);
+        val = 32768 * constrain((aa - clnWtr) / 3500, 0, 1);
         ledcWrite(channelTable[0], val);
-        val = 32768 * constrain((3000 - drtWtr) / 3500, 0, 1);
+        val = 32768 * constrain((bb - drtWtr) / 3500, 0, 1);
         ledcWrite(channelTable[1], val);
-        val = 32768 * constrain((3000 - gryWtr) / 3500, 0, 1);
+        val = 32768 * constrain((cc - gryWtr) / 3500, 0, 1);
         ledcWrite(channelTable[2], val);
         // Serial.print(String("clnWtr:") + String(clnWtr));
         // Serial.print(String("drtWtr:") + String(drtWtr));
