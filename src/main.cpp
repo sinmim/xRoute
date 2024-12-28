@@ -370,7 +370,7 @@ void testModeSelectorTask(void *parameters)
     Serial.println("===================>TEST MODE<================");
     vTaskDelete(led_indicator_task_handle);
     vTaskDelete(GasTask_handle);
-    vTaskDelete(DimerTask_handle);
+    //vTaskDelete(DimerTask_handle);
     vTaskDelete(MainStringProcessTask_handle);
 
     while (1)
@@ -418,11 +418,11 @@ void testModeSelectorTask(void *parameters)
         for (int i = 1; i <= 7; i++)
         {
           DimValChanged = true;
-          dimTmp[i - 1] = 32768 * 50 / 255 * dimLimit[i - 1];
+          dimTmp[i - 1] = 32768 * 100 / 255 ;
           vTaskDelay(pdMS_TO_TICKS(500));
           DimValChanged = true;
-          dimTmp[i - 1] = 32768 * 0 / 255 * dimLimit[i - 1];
-          vTaskDelay(pdMS_TO_TICKS(500));
+          dimTmp[i - 1] = 32768 * 0 / 255 ;
+          vTaskDelay(pdMS_TO_TICKS(100));
           if (KEY_PRESSED)
           {
             break;
