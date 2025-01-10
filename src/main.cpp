@@ -346,11 +346,14 @@ TaskHandle_t MainStringProcessTask_handle;
 
 void testModeSelectorTask(void *parameters)
 {
-#define THRESHULD 150
+#define THRESHULD 240
+//print pt100
 #define KEY_PRESSED (pt100 < THRESHULD)
 
   bool testFlg = false;
   vTaskDelay(pdMS_TO_TICKS(1000));
+Serial.print("pt100:");
+Serial.println(pt100);
 
   if (KEY_PRESSED)
   {
