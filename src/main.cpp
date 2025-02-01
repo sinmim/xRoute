@@ -194,6 +194,8 @@ const String statesFile = "/LastStates.txt";
 #include <ButtonConfig.h>
 const String ConfigFile = "/ConfigFile.txt";
 String strConfigFileBuff = "";
+const String RegFile = "/RegFile.txt";
+const String UpTimeFile = "/UpTime.txt";
 //===========================CLASSES
 uint64_t chipid;
 String GeneralLisence;
@@ -343,17 +345,249 @@ TaskHandle_t led_indicator_task_handle;
 TaskHandle_t GasTask_handle;
 TaskHandle_t DimerTask_handle;
 TaskHandle_t MainStringProcessTask_handle;
+//----------------------Registeratioin class
+// define a class
+class RegDev
+{
+private:
+  File file;
+  String logContent;
+  struct regOptnsData
+  {
+    String name;
+    String generatedKey;
+    bool status;
+  };
+  String genLis(String secretKey)
+  {
+    // Combine the chip ID with the secret key
+    uint64_t uid = ESP.getEfuseMac();
+    char seed[32];
+    snprintf(seed, sizeof(seed), "%012llX%s", uid, secretKey);
+    // Generate a SHA-256 hash from the seed
+    SHA256 sha256;
+    uint8_t hash[32];
+    sha256.update((const uint8_t *)seed, strlen(seed));
+    sha256.finalize(hash, sizeof(hash));
+    char realSerial[18];
+    // Convert the hash to a registration code
+    snprintf(realSerial, 17, "%02X%02X%02X%02X%02X%02X%02X%02X",
+             hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7]);
+    return String(realSerial);
+  }
+  void printStat(regOptnsData &optn)
+  {
+    Serial.println(optn.name + ":" + String(optn.status));
+  }
+  String readValueFromString(String str, String keyStr)
+  {
+    int sIndex = str.indexOf(keyStr) + keyStr.length() + 1; //+1 is for '='
+    int eIndex = str.indexOf("\n", sIndex);
+    return str.substring(sIndex, eIndex);
+  }
+  void writeValueToString(String str, String keyStr, String val)
+  {
+    int sIndex = str.indexOf(keyStr) + keyStr.length() + 1; //+1 is for '='
+    String strToReplace = readValueFromString(str, keyStr);
+    str.replace(strToReplace, val);
+  }
+  void loadLog(regOptnsData &optn)
+  {
+    String tmp;
+    tmp = readValueFromString(logContent, optn.name);
+    if (tmp == optn.generatedKey)
+    {
+      optn.status = true;
+    }
+    else
+    {
+      optn.status = false;
+    }
+  }
+  void savelog()
+  {
+    if (!file)
+    {
+      Serial.println("Error : File is not opened!");
+      return;
+    }
+    file.print(logContent);
+    Serial.println(file.readString());
+  }
 
+public:
+  regOptnsData wrkLcns, gyroLcns, humLcns, crntLcns;
+  RegDev(String wrkLcnsScrtKey, String gyroLcnsScrtKey, String humLcnsScrtKey, String crntLcnsScrtKey)
+  {
+    wrkLcns.generatedKey = genLis(wrkLcnsScrtKey);
+    wrkLcns.name = "Working License";
+    gyroLcns.generatedKey = genLis(gyroLcnsScrtKey);
+    gyroLcns.name = "Gyro License";
+    humLcns.generatedKey = genLis(humLcnsScrtKey);
+    humLcns.name = "Humidity License";
+    crntLcns.generatedKey = genLis(crntLcnsScrtKey);
+    crntLcns.name = "Current License";
+  }
+  bool openLog()
+  {
+    file = SPIFFS.open(RegFile, FILE_WRITE);
+    if (file)
+    {
+      logContent = file.readString();
+      if (logContent.isEmpty())
+      {
+        logContent = wrkLcns.name + "=0123456789ABCDEF\n" +
+                     gyroLcns.name + "=52CAD7890B66749D\n" +
+                     humLcns.name + "=0123456789ABCDEF\n" +
+                     crntLcns.name + "=0123456789ABCDEF\n";
+        Serial.println("Creating lisence log file for first time!");
+        savelog();
+      }
+      else
+      {
+        loadLog(wrkLcns);
+        loadLog(gyroLcns);
+        loadLog(humLcns);
+        loadLog(crntLcns);
+        Serial.println("Lisenses : " + String(wrkLcns.status) + String(gyroLcns.status) + String(humLcns.status) + String(crntLcns.status));
+      }
+      return true;
+    }
+    else
+    {
+      return false;
+    }
+  }
+  bool isActive(regOptnsData &opt)
+  {
+    return opt.status;
+  }
+  bool activate(regOptnsData &optn, String key)
+  {
+    if (key == optn.generatedKey)
+    {
+      optn.status = true;
+      writeValueToString(logContent, optn.name, key);
+      savelog();
+    }
+    printStat(optn);
+    return optn.status;
+  }
+  void deactivate(regOptnsData &optn)
+  {
+    optn.status = false;
+    writeValueToString(logContent, optn.name, "1234567890ABCDEF");
+    savelog();
+    printStat(optn);
+  }
+};
+RegDev *xrtLcns;
+//===== Lizing class
+class Lizing
+{
+private:
+  File file;
+  String logContent;
+
+  struct UpTime
+  {
+    String name;
+    uint64_t value;
+  };
+
+  void loadUptime(UpTime &t)
+  {
+    String str = readValueFromString(logContent, t.name);
+    t.value = str.toInt();
+  }
+  String readValueFromString(String str, String keyStr)
+  {
+    int sIndex = str.indexOf(keyStr) + keyStr.length() + 1; //+1 is for '='
+    int eIndex = str.indexOf("\n", sIndex);
+    return str.substring(sIndex, eIndex);
+  }
+  void writeValueToString(String str, String keyStr, String val)
+  {
+    int sIndex = str.indexOf(keyStr) + keyStr.length() + 1; //+1 is for '='
+    String strToReplace = readValueFromString(str, keyStr);
+    str.replace(strToReplace, val);
+  }
+  void savelog()
+  {
+    if (!file)
+    {
+      Serial.println("Error : File is not opened!");
+      return;
+    }
+    file.print(logContent);
+    Serial.println(file.readString());
+  }
+
+public:
+  UpTime uptime;
+  Lizing()
+  {
+    uptime.name = "Uptime";
+  }
+  bool openLog()
+  {
+    file = SPIFFS.open(UpTimeFile, FILE_WRITE);
+    if (file)
+    {
+      logContent = file.readString();
+      if (logContent.isEmpty())
+      {
+        logContent = uptime.name + "=0\n";
+        Serial.println("Creating lizing log file for first time!");
+        savelog();
+      }
+      else
+      {
+        loadUptime(uptime);
+        Serial.println("Lizing Timer : " + String(uptime.value));
+      }
+      return true;
+    }
+    else
+    {
+      return false;
+    }
+  }
+  uint64_t CountUptimeMinCntr()
+  {
+    return uptime.value;
+  }
+  void saveUptime()
+  {
+    writeValueToString(logContent, uptime.name, String(uptime.value));
+    savelog();
+  }
+  void increaseUpTime()
+  {
+    uptime.value++;
+  }
+  uint64_t getUptime()
+  {
+    return uptime.value;
+  }
+  void setUptime(uint64_t val)
+  {
+    uptime.value = val;
+    saveUptime();
+  }
+};
+Lizing xrtLizing;
+//
 void testModeSelectorTask(void *parameters)
 {
 #define THRESHULD 240
-//print pt100
+// print pt100
 #define KEY_PRESSED (pt100 < THRESHULD)
 
   bool testFlg = false;
   vTaskDelay(pdMS_TO_TICKS(1000));
-Serial.print("pt100:");
-Serial.println(pt100);
+  Serial.print("pt100:");
+  Serial.println(pt100);
 
   if (KEY_PRESSED)
   {
@@ -373,7 +607,7 @@ Serial.println(pt100);
     Serial.println("===================>TEST MODE<================");
     vTaskDelete(led_indicator_task_handle);
     vTaskDelete(GasTask_handle);
-    //vTaskDelete(DimerTask_handle);
+    // vTaskDelete(DimerTask_handle);
     vTaskDelete(MainStringProcessTask_handle);
 
     while (1)
@@ -794,6 +1028,26 @@ void defaultCalibrations();
 int dimShortFlg = false;
 int dimShortNum = 0;
 //-------------------------------------------------TASKS
+void regControlTask(void *parameters)
+{
+  if (!xrtLcns->openLog())
+  {
+    Serial.println("Error opening or creating Lisence file");
+    vTaskDelete(NULL);
+  }
+  if (!xrtLizing.openLog())
+  {
+    Serial.println("Error opening or creating Lizing file");
+    vTaskDelete(NULL);
+  }
+
+  for (;;)
+  {
+    xrtLizing.increaseUpTime();
+    xrtLizing.saveUptime();
+    vTaskDelay(pdMS_TO_TICKS(10000)); // 10sec
+  }
+}
 void loadStateFromFile()
 {
   Serial.println("Loading Last States");
@@ -846,7 +1100,6 @@ void saveStatesToFile()
     f.close();
   }
 }
-
 bool MeasurmentTaskPause = false;
 void MeasurmentTask(void *parameters)
 {
@@ -2608,11 +2861,18 @@ void GasTask(void *parameters)
 void setup()
 {
   Serial.begin(115200);
+  xrtLcns = new RegDev("D8360", "G9933", "G9933", "C1359");
+
   initRelay();
   initLED_PWM();
   if (SPIFFS.begin(true))
   {
     Serial.println("SPIFF OK !");
+    // look for if the "statesFile" file already being created
+    if (!SPIFFS.exists(statesFile))
+    {
+      Serial.println("this device is eather new or it updated and needs to register");
+    }
     loadStateFromFile();
     // SaveStringToFile(String(defaultConfig), ConfigFile); // for test and it should be removed
     if (!SPIFFS.exists(ConfigFile))
@@ -2644,9 +2904,10 @@ void setup()
   bleSetPass(blePass);
   initADC();
   strip.begin();
-  GyroLicense = new lisence("Gyro", "G9933");   // Key for Gyro
-  VoiceLicense = new lisence("Voice", "V5612"); // Key For Voice
-  // Serial.println("General Lisence:" + GeneralLisence);
+  GyroLicense = new lisence("Gyro", "G9933"); // Key for Gyro
+  // Serial.println("GyroLicense Lisence Old:" + String(GyroLicense->realSerial));
+  //  VoiceLicense = new lisence("Voice", "V5612"); // Key For Voice
+
   SerialBT.begin("LabobinxSmart"); // Bluetooth device name
   setupBLE();
   giveMeMacAdress();
@@ -2742,6 +3003,12 @@ void setup()
       testModeSelectorTask,
       "testModeSelectorTask",
       3 * 1024,
+      NULL,
+      3,
+      NULL);
+  xTaskCreate(
+      regControlTask,
+      "regControlTask", 6 * 1024,
       NULL,
       3,
       NULL);
