@@ -194,8 +194,8 @@ const String statesFile = "/LastStates.txt";
 #include <ButtonConfig.h>
 const String ConfigFile = "/ConfigFile.txt";
 String strConfigFileBuff = "";
-const String RegFile = "/RegFile.txt";
-const String UpTimeFile = "/UpTime.txt";
+const String RegFilePath = "/RegFile.txt";
+const String UpTimeFilePath = "/UpTime.txt";
 //===========================CLASSES
 uint64_t chipid;
 String GeneralLisence;
@@ -347,236 +347,10 @@ TaskHandle_t DimerTask_handle;
 TaskHandle_t MainStringProcessTask_handle;
 //----------------------Registeratioin class
 // define a class
-class RegDev
-{
-private:
-  File file;
-  String logContent;
-  struct regOptnsData
-  {
-    String name;
-    String generatedKey;
-    bool status;
-  };
-  String genLis(String secretKey)
-  {
-    // Combine the chip ID with the secret key
-    uint64_t uid = ESP.getEfuseMac();
-    char seed[32];
-    snprintf(seed, sizeof(seed), "%012llX%s", uid, secretKey);
-    // Generate a SHA-256 hash from the seed
-    SHA256 sha256;
-    uint8_t hash[32];
-    sha256.update((const uint8_t *)seed, strlen(seed));
-    sha256.finalize(hash, sizeof(hash));
-    char realSerial[18];
-    // Convert the hash to a registration code
-    snprintf(realSerial, 17, "%02X%02X%02X%02X%02X%02X%02X%02X",
-             hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7]);
-    return String(realSerial);
-  }
-  void printStat(regOptnsData &optn)
-  {
-    Serial.println(optn.name + ":" + String(optn.status));
-  }
-  String readValueFromString(String str, String keyStr)
-  {
-    int sIndex = str.indexOf(keyStr) + keyStr.length() + 1; //+1 is for '='
-    int eIndex = str.indexOf("\n", sIndex);
-    return str.substring(sIndex, eIndex);
-  }
-  void writeValueToString(String str, String keyStr, String val)
-  {
-    int sIndex = str.indexOf(keyStr) + keyStr.length() + 1; //+1 is for '='
-    String strToReplace = readValueFromString(str, keyStr);
-    str.replace(strToReplace, val);
-  }
-  void loadLog(regOptnsData &optn)
-  {
-    String tmp;
-    tmp = readValueFromString(logContent, optn.name);
-    if (tmp == optn.generatedKey)
-    {
-      optn.status = true;
-    }
-    else
-    {
-      optn.status = false;
-    }
-  }
-  void savelog()
-  {
-    if (!file)
-    {
-      Serial.println("Error : File is not opened!");
-      return;
-    }
-    file.print(logContent);
-    Serial.println(file.readString());
-  }
-
-public:
-  regOptnsData wrkLcns, gyroLcns, humLcns, crntLcns;
-  RegDev(String wrkLcnsScrtKey, String gyroLcnsScrtKey, String humLcnsScrtKey, String crntLcnsScrtKey)
-  {
-    wrkLcns.generatedKey = genLis(wrkLcnsScrtKey);
-    wrkLcns.name = "Working License";
-    gyroLcns.generatedKey = genLis(gyroLcnsScrtKey);
-    gyroLcns.name = "Gyro License";
-    humLcns.generatedKey = genLis(humLcnsScrtKey);
-    humLcns.name = "Humidity License";
-    crntLcns.generatedKey = genLis(crntLcnsScrtKey);
-    crntLcns.name = "Current License";
-  }
-  bool openLog()
-  {
-    file = SPIFFS.open(RegFile, FILE_WRITE);
-    if (file)
-    {
-      logContent = file.readString();
-      if (logContent.isEmpty())
-      {
-        logContent = wrkLcns.name + "=0123456789ABCDEF\n" +
-                     gyroLcns.name + "=52CAD7890B66749D\n" +
-                     humLcns.name + "=0123456789ABCDEF\n" +
-                     crntLcns.name + "=0123456789ABCDEF\n";
-        Serial.println("Creating lisence log file for first time!");
-        savelog();
-      }
-      else
-      {
-        loadLog(wrkLcns);
-        loadLog(gyroLcns);
-        loadLog(humLcns);
-        loadLog(crntLcns);
-        Serial.println("Lisenses : " + String(wrkLcns.status) + String(gyroLcns.status) + String(humLcns.status) + String(crntLcns.status));
-      }
-      return true;
-    }
-    else
-    {
-      return false;
-    }
-  }
-  bool isActive(regOptnsData &opt)
-  {
-    return opt.status;
-  }
-  bool activate(regOptnsData &optn, String key)
-  {
-    if (key == optn.generatedKey)
-    {
-      optn.status = true;
-      writeValueToString(logContent, optn.name, key);
-      savelog();
-    }
-    printStat(optn);
-    return optn.status;
-  }
-  void deactivate(regOptnsData &optn)
-  {
-    optn.status = false;
-    writeValueToString(logContent, optn.name, "1234567890ABCDEF");
-    savelog();
-    printStat(optn);
-  }
-};
+#include <licensing.h>
 RegDev *xrtLcns;
 //===== Lizing class
-class Lizing
-{
-private:
-  File file;
-  String logContent;
-
-  struct UpTime
-  {
-    String name;
-    uint64_t value;
-  };
-
-  void loadUptime(UpTime &t)
-  {
-    String str = readValueFromString(logContent, t.name);
-    t.value = str.toInt();
-  }
-  String readValueFromString(String str, String keyStr)
-  {
-    int sIndex = str.indexOf(keyStr) + keyStr.length() + 1; //+1 is for '='
-    int eIndex = str.indexOf("\n", sIndex);
-    return str.substring(sIndex, eIndex);
-  }
-  void writeValueToString(String str, String keyStr, String val)
-  {
-    int sIndex = str.indexOf(keyStr) + keyStr.length() + 1; //+1 is for '='
-    String strToReplace = readValueFromString(str, keyStr);
-    str.replace(strToReplace, val);
-  }
-  void savelog()
-  {
-    if (!file)
-    {
-      Serial.println("Error : File is not opened!");
-      return;
-    }
-    file.print(logContent);
-    Serial.println(file.readString());
-  }
-
-public:
-  UpTime uptime;
-  Lizing()
-  {
-    uptime.name = "Uptime";
-  }
-  bool openLog()
-  {
-    file = SPIFFS.open(UpTimeFile, FILE_WRITE);
-    if (file)
-    {
-      logContent = file.readString();
-      if (logContent.isEmpty())
-      {
-        logContent = uptime.name + "=0\n";
-        Serial.println("Creating lizing log file for first time!");
-        savelog();
-      }
-      else
-      {
-        loadUptime(uptime);
-        Serial.println("Lizing Timer : " + String(uptime.value));
-      }
-      return true;
-    }
-    else
-    {
-      return false;
-    }
-  }
-  uint64_t CountUptimeMinCntr()
-  {
-    return uptime.value;
-  }
-  void saveUptime()
-  {
-    writeValueToString(logContent, uptime.name, String(uptime.value));
-    savelog();
-  }
-  void increaseUpTime()
-  {
-    uptime.value++;
-  }
-  uint64_t getUptime()
-  {
-    return uptime.value;
-  }
-  void setUptime(uint64_t val)
-  {
-    uptime.value = val;
-    saveUptime();
-  }
-};
-Lizing xrtLizing;
+Leasing *xrtLizing;
 //
 void testModeSelectorTask(void *parameters)
 {
@@ -1035,17 +809,27 @@ void regControlTask(void *parameters)
     Serial.println("Error opening or creating Lisence file");
     vTaskDelete(NULL);
   }
-  if (!xrtLizing.openLog())
+  if (!xrtLizing->openLog())
   {
     Serial.println("Error opening or creating Lizing file");
     vTaskDelete(NULL);
   }
 
+  int min_10 = 0;
   for (;;)
   {
-    xrtLizing.increaseUpTime();
-    xrtLizing.saveUptime();
-    vTaskDelay(pdMS_TO_TICKS(10000)); // 10sec
+    if (++min_10 % 600 == 0) // 10 min
+    {
+      xrtLizing->increaseUpTime();
+      xrtLizing->saveUptime();
+      uint64_t sec = xrtLizing->getUptime() * 600;
+      uint64_t minute, hours, days;
+      days = sec / (24 * 3600);
+      hours = (sec / 3600) % 3600;
+      minute = (sec / 60) % 60;
+      Serial.println("Uptime: " + String(days) + "D: " + String(hours) + "H: " + String(minute) + "M: ");
+    }
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
 void loadStateFromFile()
@@ -1857,7 +1641,12 @@ void MainStringProcessTask(void *parameters)
     else if (!strcmp(mainRxStr, "GiveMeSysInfo"))
     {
       uint64_t chipid = ESP.getEfuseMac();
-      sprintf(str, "MacAddress:%012llX,%s,Version:%s\xFF\xFF\xFF", chipid, GeneralLisence.c_str(), Version);
+      String LisenceStr = "";
+      LisenceStr += "Gyro:" + String((xrtLcns->isActive(xrtLcns->gyroLcns) ? "True" : "False"));
+      LisenceStr += ",Hum:" + String((xrtLcns->isActive(xrtLcns->humLcns) ? "True" : "False"));
+      LisenceStr += ",Curent:" + String((xrtLcns->isActive(xrtLcns->crntLcns) ? "True" : "False"));
+      LisenceStr += ",Work:" + String((xrtLcns->isActive(xrtLcns->wrkLcns) ? "True" : "False"));
+      sprintf(str, ",MacAddress:%012llX,%s,Version:%s\xFF\xFF\xFF", chipid, LisenceStr, Version);
       Serial.println(str);
       SendToAll(str);
     }
@@ -1867,20 +1656,38 @@ void MainStringProcessTask(void *parameters)
     }
     else if (strncmp(mainRxStr, "GyroPass:", 9) == 0)
     {
-      char tmp[17];
-      for (int i = 0; i < 16; i++)
+      String strTmp = String(mainRxStr);
+      String key = strTmp.substring(strTmp.indexOf(":") + 1);
+      bool status = false;
+      status |= xrtLcns->activate(xrtLcns->gyroLcns, key);
+      status |= xrtLcns->activate(xrtLcns->crntLcns, key);
+      status |= xrtLcns->activate(xrtLcns->wrkLcns, key);
+      status |= xrtLcns->activate(xrtLcns->humLcns, key);
+      if (!status)
       {
-        tmp[i] = mainRxStr[9 + i];
-      }
-      tmp[16] = '\0';
-      sprintf(str, "ReceivedPass:%s", tmp);
-      Serial.println(str);
-      sprintf(str, "InternalPass:%s", GyroLicense->realSerial);
-      Serial.println(str);
-
-      if (strcmp(GyroLicense->realSerial, tmp) == 0)
-      {
-        GyroLicense->activate();
+        if (!strcmp(mainRxStr, "GyroPass:deactiveAll"))
+        {
+          xrtLcns->deactivate(xrtLcns->gyroLcns);
+          xrtLcns->deactivate(xrtLcns->crntLcns);
+          xrtLcns->deactivate(xrtLcns->wrkLcns);
+          xrtLcns->deactivate(xrtLcns->humLcns);
+        }
+        else if (!strcmp(mainRxStr, "GyroPass:deactiveGyro"))
+        {
+          xrtLcns->deactivate(xrtLcns->gyroLcns);
+        }
+        else if (!strcmp(mainRxStr, "GyroPass:deactiveHum"))
+        {
+          xrtLcns->deactivate(xrtLcns->humLcns);
+        }
+        else if (!strcmp(mainRxStr, "GyroPass:deactiveWork"))
+        {
+          xrtLcns->deactivate(xrtLcns->wrkLcns);
+        }
+        else if (!strcmp(mainRxStr, "GyroPass:deactiveCurent"))
+        {
+          xrtLcns->deactivate(xrtLcns->crntLcns);
+        }
       }
     }
     else if (strncmp(mainRxStr, "GyroOrientation=", 16) == 0)
@@ -2861,7 +2668,8 @@ void GasTask(void *parameters)
 void setup()
 {
   Serial.begin(115200);
-  xrtLcns = new RegDev("D8360", "G9933", "G9933", "C1359");
+  xrtLcns = new RegDev("W9933", "G9933", "H9933", "C9933", RegFilePath);
+  xrtLizing = new Leasing(UpTimeFilePath);
 
   initRelay();
   initLED_PWM();
