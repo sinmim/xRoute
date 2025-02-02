@@ -26,9 +26,9 @@ private:
     void savelog();
 
 public:
-    regOptnsData wrkLcns, gyroLcns, humLcns, crntLcns;
+    regOptnsData wrkLcns, gyroLcns, humLcns, crntLcns, gasLcns;
 
-    RegDev(String wrkLcnsScrtKey, String gyroLcnsScrtKey, String humLcnsScrtKey, String crntLcnsScrtKey, String path);
+    RegDev(String wrkLcnsScrtKey, String gyroLcnsScrtKey, String humLcnsScrtKey, String crntLcnsScrtKey, String gasLcns, String path);
     bool openLog();
     bool isActive(regOptnsData &opt);
     bool activate(regOptnsData &optn, String key);

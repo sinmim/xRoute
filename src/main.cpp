@@ -199,136 +199,6 @@ const String UpTimeFilePath = "/UpTime.txt";
 //===========================CLASSES
 uint64_t chipid;
 String GeneralLisence;
-class lisence
-{
-public:
-  String name;
-  String secretKey;
-  char realSerial[18];
-  bool State;
-
-public:
-  lisence(String lisenceName, String key)
-  {
-    secretKey = key;
-    name = lisenceName;
-    State = checkActivation();
-    generateSerial();
-  }
-  bool checkActivation()
-  {
-    // find the key in the string
-    int keyIndex = GeneralLisence.indexOf(name);
-    if (keyIndex == -1)
-    {
-      return false;
-    }
-    // find the end of the key
-    int endKeyIndex = GeneralLisence.indexOf(':', keyIndex);
-    if (endKeyIndex == -1)
-    {
-      return false;
-    }
-    // find the start of the value
-    int valueIndex = endKeyIndex + 1;
-    // find the end of the value
-    int endValueIndex = GeneralLisence.indexOf(',', valueIndex);
-    if (endValueIndex == -1)
-    {
-      endValueIndex = GeneralLisence.length();
-    }
-    // extract the value substring
-    String valueStr = GeneralLisence.substring(valueIndex, endValueIndex);
-    // convert the value string to a boolean
-    return valueStr == "True "; // chonke false ye harf bishtare be true space zadim too save
-  }
-  // Edits a boolean license feature in a string based on a new state.
-  void editGeneralLisence()
-  {
-    String searchName = name + ":";
-    int pos = GeneralLisence.indexOf(searchName);
-    if (pos == -1)
-    {
-      // name not found in GeneralLisence, do nothing
-      return;
-    }
-    // find the end position of the value (which is either "," or end of string)
-    int endPos = GeneralLisence.indexOf(",", pos);
-    if (endPos == -1)
-    {
-      endPos = GeneralLisence.length();
-    }
-    // extract the current value of the name
-    String value = GeneralLisence.substring(pos + searchName.length(), endPos);
-    // construct the new value based on the current state
-    String newValue = (State ? "True " : "False");
-    // check if the length of the old and new values are different
-    if (newValue.length() != value.length())
-    {
-      // adjust the length by adding or removing a single comma
-      if (newValue.length() > value.length())
-      {
-        value += ","; // add a comma to the end of the value
-      }
-      else
-      {
-        value = value.substring(0, value.length() - 1); // remove the comma at the end of the value
-      }
-    }
-    // replace the old value with the new value
-    for (int i = 0; i < newValue.length(); i++)
-    {
-      GeneralLisence.setCharAt(pos + searchName.length() + i, newValue.charAt(i));
-    }
-    // add or remove comma if necessary
-    if (newValue.length() > value.length())
-    {
-      GeneralLisence += ",";
-    }
-    else if (newValue.length() < value.length())
-    {
-      GeneralLisence = GeneralLisence.substring(0, pos + searchName.length() + newValue.length()) + GeneralLisence.substring(endPos);
-    }
-  }
-  void activate()
-  {
-    State = true;
-    editGeneralLisence();
-    EEPROM.writeString(E2ADD.licenseStatSave, GeneralLisence);
-    EEPROM.commit();
-  }
-  void deactivate()
-  {
-    State = false;
-    editGeneralLisence();
-    EEPROM.writeString(E2ADD.licenseStatSave, GeneralLisence);
-    EEPROM.commit();
-  }
-  void generateSerial()
-  {
-    // Combine the chip ID with the secret key
-    uint64_t uid = ESP.getEfuseMac();
-    char seed[32];
-    snprintf(seed, sizeof(seed), "%012llX%s", uid, secretKey);
-
-    // Generate a SHA-256 hash from the seed
-    SHA256 sha256;
-    uint8_t hash[32];
-    sha256.update((const uint8_t *)seed, strlen(seed));
-    sha256.finalize(hash, sizeof(hash));
-
-    // Convert the hash to a registration code
-    snprintf(realSerial, 17, "%02X%02X%02X%02X%02X%02X%02X%02X",
-             hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7]);
-  }
-  bool isActive()
-  {
-    return State;
-  }
-};
-lisence *GyroLicense;  // Key for Gyro
-lisence *VoiceLicense; // Key For Voice
-//----------------------Barometer
 TaskHandle_t ramMonitorTaskHandle;
 //----------------------Low Voltage And Critical Voltage
 float BatteryLowPrcnt = 11.0;
@@ -349,9 +219,7 @@ TaskHandle_t MainStringProcessTask_handle;
 // define a class
 #include <licensing.h>
 RegDev *xrtLcns;
-//===== Lizing class
 Leasing *xrtLizing;
-//
 void testModeSelectorTask(void *parameters)
 {
 #define THRESHULD 240
@@ -739,14 +607,14 @@ void I2C_SENSORS_TASK(void *parameters)
     }
 
     // Actual mesurments and filtering
-    if (cntr % BARO_INTERVAL == 0 && mainBarometer == ADD_INTERNAL_BAROMETER && GyroLicense->isActive() == true)
+    if (cntr % BARO_INTERVAL == 0 && mainBarometer == ADD_INTERNAL_BAROMETER && xrtLcns->isActive(xrtLcns->humLcns) == true)
     {
       digitalAlt = psiToMeters(BARO.readPressure(PSI) - pressurCalOffset);
     }
 
     if (cntr % GYRO_INTERVAL == 0)
     {
-      if (mainGyro == ADD_INTERNAL_GYRO && GyroLicense->isActive() == true)
+      if (mainGyro == ADD_INTERNAL_GYRO && xrtLcns->isActive(xrtLcns->gyroLcns) == true)
       {
         float tempx, tempy;
         readaxels(ADD_INTERNAL_GYRO, &tempx, &tempy);
@@ -802,7 +670,7 @@ void defaultCalibrations();
 int dimShortFlg = false;
 int dimShortNum = 0;
 //-------------------------------------------------TASKS
-void regControlTask(void *parameters)
+void Reg_Uptime_Task(void *parameters)
 {
   if (!xrtLcns->openLog())
   {
@@ -814,7 +682,6 @@ void regControlTask(void *parameters)
     Serial.println("Error opening or creating Lizing file");
     vTaskDelete(NULL);
   }
-
   int min_10 = 0;
   for (;;)
   {
@@ -824,12 +691,12 @@ void regControlTask(void *parameters)
       xrtLizing->saveUptime();
       uint64_t sec = xrtLizing->getUptime() * 600;
       uint64_t minute, hours, days;
-      days = sec / (24 * 3600);
-      hours = (sec / 3600) % 3600;
       minute = (sec / 60) % 60;
+      hours = (sec / 3600) % 24;
+      days = sec / (24 * 3600);
       Serial.println("Uptime: " + String(days) + "D: " + String(hours) + "H: " + String(minute) + "M: ");
     }
-    vTaskDelay(pdMS_TO_TICKS(10));
+    vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
 void loadStateFromFile()
@@ -1601,68 +1468,78 @@ void MainStringProcessTask(void *parameters)
     }
     else if (strncmp(mainRxStr, "GiveMeBalance=", 14) == 0)
     {
-      float ofsetlesX = (accXValue - accXValueOffset) * revX;
-      float ofsetlesY = (accYValue - accYValueOffset) * revY;
+      if (xrtLcns->isActive(xrtLcns->gyroLcns))
+      {
+        float ofsetlesX = (accXValue - accXValueOffset) * revX;
+        float ofsetlesY = (accYValue - accYValueOffset) * revY;
 
-      alpha = atan(ofsetlesY / ofsetlesX);
+        alpha = atan(ofsetlesY / ofsetlesX);
 
-      if (ofsetlesX < 0 && ofsetlesY > 0)
-        alpha += PI;
-      if (ofsetlesX < 0 && ofsetlesY < 0)
-        alpha += PI;
-      if (ofsetlesX > 0 && ofsetlesY < 0)
-        alpha += (2 * PI);
-      len = sqrt(ofsetlesX * ofsetlesX + ofsetlesY * ofsetlesY) * accSensitivity;
+        if (ofsetlesX < 0 && ofsetlesY > 0)
+          alpha += PI;
+        if (ofsetlesX < 0 && ofsetlesY < 0)
+          alpha += PI;
+        if (ofsetlesX > 0 && ofsetlesY < 0)
+          alpha += (2 * PI);
+        len = sqrt(ofsetlesX * ofsetlesX + ofsetlesY * ofsetlesY) * accSensitivity;
 
-      if (len > 1)
-        len = 1;
-      accSensitivity = mainRxStr[14] - 10; // to prevent \n i add 10 to slider
-      accSensitivity *= 2;
+        if (len > 1)
+          len = 1;
+        accSensitivity = mainRxStr[14] - 10; // to prevent \n i add 10 to slider
+        accSensitivity *= 2;
 
-      sprintf(str, "Accx.val=%d\xFF\xFF\xFF", (int)(roundf(len * cos(alpha) * 100)));
-      SendToAll(str);
-      sprintf(str, "Accy.val=%d\xFF\xFF\xFF", (int)(roundf(len * sin(alpha) * 100)));
-      SendToAll(str);
+        sprintf(str, "Accx.val=%d\xFF\xFF\xFF", (int)(roundf(len * cos(alpha) * 100)));
+        SendToAll(str);
+        sprintf(str, "Accy.val=%d\xFF\xFF\xFF", (int)(roundf(len * sin(alpha) * 100)));
+        SendToAll(str);
+      }
     }
     else if (!strcmp(mainRxStr, "AccelZeroOffset"))
     {
+      uint timeout = 200;
       GyroOffsetingFlg = true;
-      while (GyroOffsetingFlg)
+      while (GyroOffsetingFlg && --timeout > 0)
         vTaskDelay(10 / portTICK_PERIOD_MS);
       EEPROM.writeFloat(E2ADD.accXValueOffsetSave, accXValue);
       EEPROM.writeFloat(E2ADD.accYValueOffsetSave, accYValue);
       EEPROM.commit();
       accXValueOffset = EEPROM.readFloat(E2ADD.accXValueOffsetSave);
       accYValueOffset = EEPROM.readFloat(E2ADD.accYValueOffsetSave);
-
-      sprintf(str, "XrouteAlarm=accXValueOffset=%f,accYValueOffset=%f\xFF\xFF\xFF", accXValueOffset, accYValueOffset);
+      if (timeout)
+      {
+        sprintf(str, "XrouteAlarm=accXValueOffset=%f,accYValueOffset=%f\xFF\xFF\xFF", accXValueOffset, accYValueOffset);
+      }
+      else
+      {
+        sprintf(str, "XrouteAlarm=Try again please!\xFF\xFF\xFF");
+      }
       SendToAll(str);
     }
     else if (!strcmp(mainRxStr, "GiveMeSysInfo"))
     {
       uint64_t chipid = ESP.getEfuseMac();
       String LisenceStr = "";
-      LisenceStr += "Gyro:" + String((xrtLcns->isActive(xrtLcns->gyroLcns) ? "True" : "False"));
-      LisenceStr += ",Hum:" + String((xrtLcns->isActive(xrtLcns->humLcns) ? "True" : "False"));
-      LisenceStr += ",Curent:" + String((xrtLcns->isActive(xrtLcns->crntLcns) ? "True" : "False"));
-      LisenceStr += ",Work:" + String((xrtLcns->isActive(xrtLcns->wrkLcns) ? "True" : "False"));
-      sprintf(str, ",MacAddress:%012llX,%s,Version:%s\xFF\xFF\xFF", chipid, LisenceStr, Version);
+      LisenceStr += "Gyro:" + String(xrtLcns->isActive(xrtLcns->gyroLcns) ? "True" : "False");
+      LisenceStr += ",Hum:" + String(xrtLcns->isActive(xrtLcns->humLcns) ? "True" : "False");
+      LisenceStr += ",Current:" + String(xrtLcns->isActive(xrtLcns->crntLcns) ? "True" : "False");
+      LisenceStr += ",Work:" + String(xrtLcns->isActive(xrtLcns->wrkLcns) ? "True" : "False");
+      LisenceStr += ",Gas:" + String(xrtLcns->isActive(xrtLcns->gasLcns) ? "True" : "False"); // Removed extra space
+      char str[256];
+      sprintf(str, "MacAddress:%012llX,%s,Version:%s\xFF\xFF\xFF", chipid, LisenceStr.c_str(), Version);
       Serial.println(str);
       SendToAll(str);
-    }
-    else if (!strcmp(mainRxStr, "GyroPass:deactive"))
-    {
-      GyroLicense->deactivate();
     }
     else if (strncmp(mainRxStr, "GyroPass:", 9) == 0)
     {
       String strTmp = String(mainRxStr);
       String key = strTmp.substring(strTmp.indexOf(":") + 1);
       bool status = false;
-      status |= xrtLcns->activate(xrtLcns->gyroLcns, key);
-      status |= xrtLcns->activate(xrtLcns->crntLcns, key);
       status |= xrtLcns->activate(xrtLcns->wrkLcns, key);
+      status |= xrtLcns->activate(xrtLcns->gyroLcns, key);
       status |= xrtLcns->activate(xrtLcns->humLcns, key);
+      status |= xrtLcns->activate(xrtLcns->crntLcns, key);
+      status |= xrtLcns->activate(xrtLcns->gasLcns, key);
+
       if (!status)
       {
         if (!strcmp(mainRxStr, "GyroPass:deactiveAll"))
@@ -1671,6 +1548,7 @@ void MainStringProcessTask(void *parameters)
           xrtLcns->deactivate(xrtLcns->crntLcns);
           xrtLcns->deactivate(xrtLcns->wrkLcns);
           xrtLcns->deactivate(xrtLcns->humLcns);
+          xrtLcns->deactivate(xrtLcns->gasLcns);
         }
         else if (!strcmp(mainRxStr, "GyroPass:deactiveGyro"))
         {
@@ -1683,6 +1561,10 @@ void MainStringProcessTask(void *parameters)
         else if (!strcmp(mainRxStr, "GyroPass:deactiveWork"))
         {
           xrtLcns->deactivate(xrtLcns->wrkLcns);
+        }
+        else if (!strcmp(mainRxStr, "GyroPass:deactiveGas"))
+        {
+          xrtLcns->deactivate(xrtLcns->gasLcns);
         }
         else if (!strcmp(mainRxStr, "GyroPass:deactiveCurent"))
         {
@@ -2668,7 +2550,8 @@ void GasTask(void *parameters)
 void setup()
 {
   Serial.begin(115200);
-  xrtLcns = new RegDev("W9933", "G9933", "H9933", "C9933", RegFilePath);
+  // --------------------Work     Gyro     Hum    Current    Gas
+  xrtLcns = new RegDev("K3nY0", "8px7n", "tQ5Eb", "pdjtk", "Z3dPD", RegFilePath);
   xrtLizing = new Leasing(UpTimeFilePath);
 
   initRelay();
@@ -2712,9 +2595,6 @@ void setup()
   bleSetPass(blePass);
   initADC();
   strip.begin();
-  GyroLicense = new lisence("Gyro", "G9933"); // Key for Gyro
-  // Serial.println("GyroLicense Lisence Old:" + String(GyroLicense->realSerial));
-  //  VoiceLicense = new lisence("Voice", "V5612"); // Key For Voice
 
   SerialBT.begin("LabobinxSmart"); // Bluetooth device name
   setupBLE();
@@ -2815,7 +2695,7 @@ void setup()
       3,
       NULL);
   xTaskCreate(
-      regControlTask,
+      Reg_Uptime_Task,
       "regControlTask", 6 * 1024,
       NULL,
       3,

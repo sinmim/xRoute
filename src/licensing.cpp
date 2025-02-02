@@ -2,7 +2,7 @@
 #include <SHA256.h>
 
 // ===================== RegDev Implementation =====================
-RegDev::RegDev(String wrkLcnsScrtKey, String gyroLcnsScrtKey, String humLcnsScrtKey, String crntLcnsScrtKey, String path)
+RegDev::RegDev(String wrkLcnsScrtKey, String gyroLcnsScrtKey, String humLcnsScrtKey, String crntLcnsScrtKey, String gasLcnsScrtKey, String path)
 {
     wrkLcns.generatedKey = genLis(wrkLcnsScrtKey);
     wrkLcns.name = "Working License";
@@ -12,6 +12,8 @@ RegDev::RegDev(String wrkLcnsScrtKey, String gyroLcnsScrtKey, String humLcnsScrt
     humLcns.name = "Humidity License";
     crntLcns.generatedKey = genLis(crntLcnsScrtKey);
     crntLcns.name = "Current License";
+    gasLcns.generatedKey = genLis(gasLcnsScrtKey);
+    gasLcns.name = "Gas License";
     filePath = path;
 }
 
@@ -60,8 +62,9 @@ bool RegDev::openLog()
         loadLog(gyroLcns);
         loadLog(humLcns);
         loadLog(crntLcns);
+        loadLog(gasLcns);
         Serial.println("Licenses =======> WORK:" + String(wrkLcns.status) + " GYRO:" + String(gyroLcns.status) +
-                       +" HUM:" + String(humLcns.status) + " CUR:" + String(crntLcns.status));
+                       +" HUM:" + String(humLcns.status) + " CUR:" + String(crntLcns.status) + " GAS:" + String(gasLcns.status));
     }
 
     return true;
@@ -83,7 +86,11 @@ void RegDev::writeValueToString(String &str, String keyStr, String val)
 {
     int sIndex = str.indexOf(keyStr + "="); // Find "keyStr="
     if (sIndex == -1)
-        return; // Key not found, do nothing
+    {
+        str += keyStr + "=" + val + '\n';
+        Serial.println("NEW VALL ADDED : " + str + "\nEND");
+        return;
+    }
 
     sIndex += keyStr.length() + 1; // Move to the start of the value
 
@@ -135,10 +142,12 @@ bool RegDev::activate(regOptnsData &optn, String key)
     if (key == optn.generatedKey)
     {
         optn.status = true;
+        Serial.println("KEY IS OK!");
         writeValueToString(logContent, optn.name, key);
         savelog();
         return true;
     }
+    Serial.println("KEY IS WRONG!" + String(optn.generatedKey) + "~" + String(key));
     printStat(optn);
     return false;
 }
@@ -238,7 +247,7 @@ void Leasing::savelog()
     file = SPIFFS.open(filePath, FILE_READ);
     if (file)
     {
-        //Serial.println(file.readString()); // Read and print saved content
+        // Serial.println(file.readString()); // Read and print saved content
         file.close();
     }
 }
