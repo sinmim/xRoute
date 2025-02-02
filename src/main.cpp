@@ -93,6 +93,7 @@ Freenove_ESP32_WS2812 strip = Freenove_ESP32_WS2812(LEDS_COUNT, LEDS_PIN, CHANNE
 #define COLOR_RED 0xff0000
 #define COLOR_GREEN 0x00ff00
 #define COLOR_BLUE 0x0000ff
+#define COLOR_VIOLET 0xFF00FF
 #define COLOR_ORANG 0xffa000
 #define COLOR_OFF 0x000000
 #define COLOR_WHITE 0xffffff
@@ -682,21 +683,46 @@ void Reg_Uptime_Task(void *parameters)
     Serial.println("Error opening or creating Lizing file");
     vTaskDelete(NULL);
   }
+
+  xrtLizing->setTime(xrtLizing->expTime, 2 * 6); // for test and it should be removed
+
   int min_10 = 0;
   for (;;)
   {
-    if (++min_10 % 600 == 0) // 10 min
+    if (xrtLcns->isActive(xrtLcns->wrkLcns))
     {
-      xrtLizing->increaseUpTime();
-      xrtLizing->saveUptime();
-      uint64_t sec = xrtLizing->getUptime() * 600;
-      uint64_t minute, hours, days;
-      minute = (sec / 60) % 60;
-      hours = (sec / 3600) % 24;
-      days = sec / (24 * 3600);
-      Serial.println("Uptime: " + String(days) + "D: " + String(hours) + "H: " + String(minute) + "M: ");
+      if (++min_10 % 600 == 0) // 10 min
+      {
+        xrtLizing->Uptime_tick();
+        xrtLizing->saveTime(xrtLizing->uptime);
+        Serial.println(xrtLizing->timeToStr(xrtLizing->uptime));
+        Serial.println(xrtLizing->timeToStr(xrtLizing->expTime));
+      }
+      if (xrtLizing->getTime(xrtLizing->uptime) > xrtLizing->getTime(xrtLizing->expTime))
+      {
+        xrtLcns->deactivate(xrtLcns->wrkLcns);
+      }
     }
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    else
+    {
+      bool flag = false;
+      for (int i = 1; i <= 16; i++)
+      {
+        if (relState_0_15(i - 1))
+        {
+          char str[8];
+          sprintf(str, "sw%d\n", i);
+          sendCmndToMainStringProcessorTask(str);
+          flag = true;
+        }
+      }
+      if (flag)
+      {
+        SendToAll("XrouteAlarm=No active license!\nPlease check your license status!!\xFF\xFF\xFF");
+        vTaskDelay(pdTICKS_TO_MS(1000));
+      }
+    }
+    vTaskDelay(pdMS_TO_TICKS(1000)); // for 10 min it should be 1000ms
   }
 }
 void loadStateFromFile()
@@ -2159,7 +2185,10 @@ void led_indicator_task(void *parameters)
       ws2812Blink(COLOR_WHITE);
       vTaskDelay(50 / portTICK_PERIOD_MS);
     }
-
+    if (!xrtLcns->isActive(xrtLcns->wrkLcns))
+    {
+      ws2812Blink(COLOR_VIOLET);
+    }
     if (overCrntFlg == true)
     {
       ws2812Blink(COLOR_ORANG);

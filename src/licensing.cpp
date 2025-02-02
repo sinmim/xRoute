@@ -165,6 +165,7 @@ Leasing::Leasing(String path)
 {
     filePath = path;
     uptime.name = "Uptime";
+    expTime.name = "ExpireTime";
 }
 
 bool Leasing::openLog()
@@ -197,22 +198,24 @@ bool Leasing::openLog()
     if (logContent.isEmpty())
     {
         Serial.println("Leasing log file is empty! InitiaLeasing...");
-        logContent = uptime.name + "=0\n";
+        logContent = uptime.name + "=0\n" +
+                     expTime.name + "=0\n";
         savelog();
     }
     else
     {
-        loadUptime(uptime);
+        loadTime(uptime);
+        loadTime(expTime);
         Serial.println("Leasing Timer: " + String(uptime.value));
     }
 
     return true;
 }
 
-void Leasing::loadUptime(UpTime &t)
+void Leasing::loadTime(UpTime &optn)
 {
-    String str = readValueFromString(logContent, t.name);
-    t.value = str.toInt();
+    String str = readValueFromString(logContent, optn.name);
+    optn.value = str.toInt();
 }
 
 String Leasing::readValueFromString(String str, String keyStr)
@@ -224,9 +227,21 @@ String Leasing::readValueFromString(String str, String keyStr)
 
 void Leasing::writeValueToString(String &str, String keyStr, String val)
 {
-    int sIndex = str.indexOf(keyStr) + keyStr.length() + 1; // +1 for '='
-    String strToReplace = readValueFromString(str, keyStr);
-    str.replace(strToReplace, val);
+    int sIndex = str.indexOf(keyStr + "="); // Find "keyStr="
+    if (sIndex == -1)
+    {
+        str += keyStr + "=" + val + '\n';
+        Serial.println("NEW VALL ADDED : " + str + "\nEND");
+        return;
+    }
+    sIndex += keyStr.length() + 1; // Move to the start of the value
+
+    int eIndex = str.indexOf("\n", sIndex); // Find the end of the value (next newline)
+    if (eIndex == -1)
+        eIndex = str.length(); // If no newline, go to end of string
+
+    // Reconstruct string: keep part before sIndex, add new value, keep part after eIndex
+    str = str.substring(0, sIndex) + val + str.substring(eIndex);
 }
 
 void Leasing::savelog()
@@ -238,43 +253,37 @@ void Leasing::savelog()
         Serial.println("Error: Could not open file for writing!");
         return;
     }
-
     // Write content to file
     file.print(logContent);
     file.close(); // Always close file after writing
-
     // Debugging: Reopen file to verify written content
     file = SPIFFS.open(filePath, FILE_READ);
     if (file)
     {
-        // Serial.println(file.readString()); // Read and print saved content
+        Serial.println("Saved Log Content:");
+        Serial.println(file.readString()); // Read and print saved content
         file.close();
     }
 }
 
-uint64_t Leasing::CountUptimeMinCntr()
+void Leasing::saveTime(UpTime &optn)
 {
-    return uptime.value;
-}
-
-void Leasing::saveUptime()
-{
-    writeValueToString(logContent, uptime.name, String(uptime.value));
+    writeValueToString(logContent, optn.name, String(optn.value));
     savelog();
 }
 
-void Leasing::increaseUpTime()
+void Leasing::Uptime_tick()
 {
     uptime.value++;
 }
 
-uint64_t Leasing::getUptime()
+uint64_t Leasing::getTime(UpTime &optn)
 {
-    return uptime.value;
+    return optn.value;
 }
 
-void Leasing::setUptime(uint64_t val)
+void Leasing::setTime(UpTime &optn, uint64_t val)
 {
-    uptime.value = val;
-    saveUptime();
+    optn.value = val;
+    saveTime(optn);
 }
