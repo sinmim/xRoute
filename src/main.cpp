@@ -2025,25 +2025,30 @@ void MainStringProcessTask(void *parameters)
         if (CMD == "SET_UP_TIME")
         {
           xrtLizing->setTime(xrtLizing->uptime, VAL.toInt());
+          xrtLizing->saveTime(xrtLizing->uptime);
         }
         else if (CMD == "SET_EXP_TIME")
         {
           xrtLizing->setTime(xrtLizing->expTime, VAL.toInt());
+          xrtLizing->saveTime(xrtLizing->expTime);
           xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
         }
         else if (CMD == "SET_EXP_TIME_60D")
         {
           xrtLizing->setTime(xrtLizing->expTime, 60 * 24 * 6);
+          xrtLizing->saveTime(xrtLizing->expTime);
           xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
         }
         else if (CMD == "SET_EXP_TIME_90D")
         {
           xrtLizing->setTime(xrtLizing->expTime, 90 * 24 * 6);
+          xrtLizing->saveTime(xrtLizing->expTime);
           xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
         }
         else if (CMD == "SET_EXP_TIME_10Y")
         {
           xrtLizing->setTime(xrtLizing->expTime, 10 * 365 * 24 * 6); // 10 years
+          xrtLizing->saveTime(xrtLizing->expTime);
           xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
         }
       }

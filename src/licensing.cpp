@@ -147,7 +147,7 @@ bool RegDev::activate(regOptnsData &optn, String key)
         savelog();
         return true;
     }
-    //Serial.println("KEY IS WRONG!" + String(optn.generatedKey) + "~" + String(key));
+    Serial.println("KEY IS WRONG!" + String(optn.generatedKey) + "~" + String(key));
     printStat(optn);
     return false;
 }
