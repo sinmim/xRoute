@@ -50,7 +50,7 @@
 // String Version = "4.0.7"; 24V version
 // 2.0.8 adding save to file for state recovery after crashes
 // 2.1.0 deisabling ampermeter disconnecting
-String Version = "2.1.2";
+String Version = "2.1.3";
 //========Update
 #include "Update.h"
 #include "AESLib.h"
@@ -713,6 +713,7 @@ void Reg_Uptime_Task(void *parameters)
           char str[8];
           sprintf(str, "sw%d\n", i);
           sendCmndToMainStringProcessorTask(str);
+          vTaskDelay(pdMS_TO_TICKS(100));
           flag = true;
         }
       }
@@ -2003,6 +2004,53 @@ void MainStringProcessTask(void *parameters)
       sprintf(str, "show.txt=\"GasRelay=%d\"\xFF\xFF\xFF", gasRelay);
       Serial.println(str);
       SendToAll(str);
+    }
+    else if (strncmp(mainRxStr, "Admin=", 6) == 0)
+    {
+      // Example Input: "Admin=1234567890ABCDEF,CMD=SET_UP_TIME,VAL=300\n"
+
+      String strtmp = String(mainRxStr);
+      String licenseKey = strtmp.substring(6, strtmp.indexOf(",CMD=")); // Extract key between "Admin=" and ",CMD="
+
+      if (licenseKey == xrtLcns->getKey(xrtLcns->wrkLcns)) // Validate license
+      {
+        int cmdStart = strtmp.indexOf("CMD=") + 4;
+        int cmdEnd = strtmp.indexOf(",VAL=");
+        String CMD = strtmp.substring(cmdStart, cmdEnd); // Extract CMD between "CMD=" and ",VAL="
+
+        int valStart = cmdEnd + 5;               // Move past ",VAL="
+        String VAL = strtmp.substring(valStart); // Extract VAL
+        VAL.trim();                              // Remove any newline or extra spaces from VAL
+
+        if (CMD == "SET_UP_TIME")
+        {
+          xrtLizing->setTime(xrtLizing->uptime, VAL.toInt());
+        }
+        else if (CMD == "SET_EXP_TIME")
+        {
+          xrtLizing->setTime(xrtLizing->expTime, VAL.toInt());
+          xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
+        }
+        else if (CMD == "SET_EXP_TIME_60D")
+        {
+          xrtLizing->setTime(xrtLizing->expTime, 60 * 24 * 6);
+          xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
+        }
+        else if (CMD == "SET_EXP_TIME_90D")
+        {
+          xrtLizing->setTime(xrtLizing->expTime, 90 * 24 * 6);
+          xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
+        }
+        else if (CMD == "SET_EXP_TIME_10Y")
+        {
+          xrtLizing->setTime(xrtLizing->expTime, 10 * 365 * 24 * 6); // 10 years
+          xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
+        }
+      }
+      else
+      {
+        Serial.println("ERROR: " + licenseKey + " ~ " + xrtLcns->getKey(xrtLcns->wrkLcns));
+      }
     }
     else
     {

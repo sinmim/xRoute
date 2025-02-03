@@ -142,12 +142,12 @@ bool RegDev::activate(regOptnsData &optn, String key)
     if (key == optn.generatedKey)
     {
         optn.status = true;
-        Serial.println("KEY IS OK!");
+        //Serial.println("KEY IS OK!");
         writeValueToString(logContent, optn.name, key);
         savelog();
         return true;
     }
-    Serial.println("KEY IS WRONG!" + String(optn.generatedKey) + "~" + String(key));
+    //Serial.println("KEY IS WRONG!" + String(optn.generatedKey) + "~" + String(key));
     printStat(optn);
     return false;
 }

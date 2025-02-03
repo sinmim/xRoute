@@ -27,12 +27,15 @@ private:
 
 public:
     regOptnsData wrkLcns, gyroLcns, humLcns, crntLcns, gasLcns;
-
     RegDev(String wrkLcnsScrtKey, String gyroLcnsScrtKey, String humLcnsScrtKey, String crntLcnsScrtKey, String gasLcns, String path);
     bool openLog();
     bool isActive(regOptnsData &opt);
     bool activate(regOptnsData &optn, String key);
     void deactivate(regOptnsData &optn);
+    String getKey(regOptnsData &optn)
+    {
+        return optn.generatedKey;
+    }
 };
 
 // ===== Lizing class
