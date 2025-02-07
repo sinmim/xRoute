@@ -683,9 +683,6 @@ void Reg_Uptime_Task(void *parameters)
     Serial.println("Error opening or creating Lizing file");
     vTaskDelete(NULL);
   }
-
-  xrtLizing->setTime(xrtLizing->expTime, 2 * 6); // for test and it should be removed
-
   int min_10 = 0;
   for (;;)
   {
@@ -1556,49 +1553,6 @@ void MainStringProcessTask(void *parameters)
       Serial.println(str);
       SendToAll(str);
     }
-    else if (strncmp(mainRxStr, "GyroPass:", 9) == 0)
-    {
-      String strTmp = String(mainRxStr);
-      String key = strTmp.substring(strTmp.indexOf(":") + 1);
-      bool status = false;
-      status |= xrtLcns->activate(xrtLcns->wrkLcns, key);
-      status |= xrtLcns->activate(xrtLcns->gyroLcns, key);
-      status |= xrtLcns->activate(xrtLcns->humLcns, key);
-      status |= xrtLcns->activate(xrtLcns->crntLcns, key);
-      status |= xrtLcns->activate(xrtLcns->gasLcns, key);
-
-      if (!status)
-      {
-        if (!strcmp(mainRxStr, "GyroPass:deactiveAll"))
-        {
-          xrtLcns->deactivate(xrtLcns->gyroLcns);
-          xrtLcns->deactivate(xrtLcns->crntLcns);
-          xrtLcns->deactivate(xrtLcns->wrkLcns);
-          xrtLcns->deactivate(xrtLcns->humLcns);
-          xrtLcns->deactivate(xrtLcns->gasLcns);
-        }
-        else if (!strcmp(mainRxStr, "GyroPass:deactiveGyro"))
-        {
-          xrtLcns->deactivate(xrtLcns->gyroLcns);
-        }
-        else if (!strcmp(mainRxStr, "GyroPass:deactiveHum"))
-        {
-          xrtLcns->deactivate(xrtLcns->humLcns);
-        }
-        else if (!strcmp(mainRxStr, "GyroPass:deactiveWork"))
-        {
-          xrtLcns->deactivate(xrtLcns->wrkLcns);
-        }
-        else if (!strcmp(mainRxStr, "GyroPass:deactiveGas"))
-        {
-          xrtLcns->deactivate(xrtLcns->gasLcns);
-        }
-        else if (!strcmp(mainRxStr, "GyroPass:deactiveCurent"))
-        {
-          xrtLcns->deactivate(xrtLcns->crntLcns);
-        }
-      }
-    }
     else if (strncmp(mainRxStr, "GyroOrientation=", 16) == 0)
     {
       GyroOriantation.setCharAt(0, mainRxStr[16]);
@@ -2005,11 +1959,69 @@ void MainStringProcessTask(void *parameters)
       Serial.println(str);
       SendToAll(str);
     }
+    else if (strncmp(mainRxStr, "GyroPass:", 9) == 0)
+    {
+      String strTmp = String(mainRxStr);
+      Serial.println("#########################################PARSING " + strTmp);
+      String key = strTmp.substring(strTmp.indexOf(":") + 1);
+      bool status = false;
+      Serial.println("====================START Trying To activate ");
+      status |= xrtLcns->activate(xrtLcns->wrkLcns, key);
+      status |= xrtLcns->activate(xrtLcns->gyroLcns, key);
+      status |= xrtLcns->activate(xrtLcns->humLcns, key);
+      status |= xrtLcns->activate(xrtLcns->crntLcns, key);
+      status |= xrtLcns->activate(xrtLcns->gasLcns, key);
+      Serial.println("====================END Trying To activate ");
+      if (!status)
+      {
+        if (!strcmp(mainRxStr, "GyroPass:deactiveAll"))
+        {
+          Serial.println("====================START DECTIVATE ALL ");
+          xrtLcns->deactivate(xrtLcns->gyroLcns);
+          xrtLcns->deactivate(xrtLcns->crntLcns);
+          xrtLcns->deactivate(xrtLcns->wrkLcns);
+          xrtLcns->deactivate(xrtLcns->humLcns);
+          xrtLcns->deactivate(xrtLcns->gasLcns);
+          Serial.println("====================END DECTIVATE ALL ");
+        }
+        else if (!strcmp(mainRxStr, "GyroPass:deactiveGyro"))
+        {
+          Serial.println("====================START DECTIVATE GYRO ");
+          xrtLcns->deactivate(xrtLcns->gyroLcns);
+          Serial.println("====================END DECTIVATE GYRO ");
+        }
+        else if (!strcmp(mainRxStr, "GyroPass:deactiveHum"))
+        {
+          Serial.println("====================START DECTIVATE HUM ");
+          xrtLcns->deactivate(xrtLcns->humLcns);
+          Serial.println("====================END DECTIVATE HUM ");
+        }
+        else if (!strcmp(mainRxStr, "GyroPass:deactiveWork"))
+        {
+          Serial.println("====================START DECTIVATE WORK ");
+          xrtLcns->deactivate(xrtLcns->wrkLcns);
+          Serial.println("====================END DECTIVATE WORK ");
+        }
+        else if (!strcmp(mainRxStr, "GyroPass:deactiveGas"))
+        {
+          Serial.println("====================START DECTIVATE GAS ");
+          xrtLcns->deactivate(xrtLcns->gasLcns);
+          Serial.println("====================END DECTIVATE GAS ");
+        }
+        else if (!strcmp(mainRxStr, "GyroPass:deactiveCurent"))
+        {
+          Serial.println("====================START DECTIVATE CURENT ");
+          xrtLcns->deactivate(xrtLcns->crntLcns);
+          Serial.println("====================END DECTIVATE CURENT ");
+        }
+      }
+      Serial.println("######################################### END");
+    }
     else if (strncmp(mainRxStr, "Admin=", 6) == 0)
     {
       // Example Input: "Admin=1234567890ABCDEF,CMD=SET_UP_TIME,VAL=300\n"
-
       String strtmp = String(mainRxStr);
+      Serial.println("+++++++++++++++++++++++++++++++++++" + strtmp);
       String licenseKey = strtmp.substring(6, strtmp.indexOf(",CMD=")); // Extract key between "Admin=" and ",CMD="
 
       if (licenseKey == xrtLcns->getKey(xrtLcns->wrkLcns)) // Validate license
@@ -2051,6 +2063,7 @@ void MainStringProcessTask(void *parameters)
           xrtLizing->saveTime(xrtLizing->expTime);
           xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
         }
+        Serial.println("+++++++++++++++++++++++++++++++++++ END" );
       }
       else
       {

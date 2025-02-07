@@ -193,6 +193,7 @@ bool Leasing::openLog()
 
     // Read existing content
     logContent = file.readString();
+
     file.close(); // Close file after reading
 
     if (logContent.isEmpty())
@@ -206,6 +207,14 @@ bool Leasing::openLog()
     {
         loadTime(uptime);
         loadTime(expTime);
+        //printing log content
+        Serial.println("//*****************inside logContent");
+        Serial.println(logContent);
+        Serial.println("//*****************values");
+        Serial.println(uptime.value);
+        Serial.println(expTime.value);
+        Serial.println("//*****************values");
+
         Serial.println("Leasing Timer: " + String(uptime.value));
     }
 
