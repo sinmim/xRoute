@@ -1959,7 +1959,7 @@ void MainStringProcessTask(void *parameters)
       Serial.println(str);
       SendToAll(str);
     }
-    else if (strncmp(mainRxStr, "GyroPass:", 9) == 0)
+    else if (strncmp(mainRxStr, "GyroPass:", 9) == 0 && strstr(mainRxStr, "ADMIN=") == NULL)
     {
       String strTmp = String(mainRxStr);
       Serial.println("#########################################PARSING " + strTmp);
@@ -2017,12 +2017,15 @@ void MainStringProcessTask(void *parameters)
       }
       Serial.println("######################################### END");
     }
-    else if (strncmp(mainRxStr, "Admin=", 6) == 0)
+    else if (strstr(mainRxStr, "ADMIN=")) // if contains ADMIN
     {
+      //----IMPORTANT NOTE : BOTH IS VALID USAGE
       // Example Input: "Admin=1234567890ABCDEF,CMD=SET_UP_TIME,VAL=300\n"
+      // Example Input: "GyroPass:Admin=1234567890ABCDEF,CMD=SET_UP_TIME,VAL=300\n"
+
       String strtmp = String(mainRxStr);
       Serial.println("+++++++++++++++++++++++++++++++++++" + strtmp);
-      String licenseKey = strtmp.substring(6, strtmp.indexOf(",CMD=")); // Extract key between "Admin=" and ",CMD="
+      String licenseKey = strtmp.substring(strtmp.indexOf("ADMIN=") + 6, strtmp.indexOf(",CMD=")); // Extract key between "Admin=" and ",CMD="
 
       if (licenseKey == xrtLcns->getKey(xrtLcns->wrkLcns)) // Validate license
       {
@@ -2063,7 +2066,7 @@ void MainStringProcessTask(void *parameters)
           xrtLizing->saveTime(xrtLizing->expTime);
           xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
         }
-        Serial.println("+++++++++++++++++++++++++++++++++++ END" );
+        Serial.println("+++++++++++++++++++++++++++++++++++ END");
       }
       else
       {
