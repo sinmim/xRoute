@@ -50,7 +50,7 @@
 // String Version = "4.0.7"; 24V version
 // 2.0.8 adding save to file for state recovery after crashes
 // 2.1.0 deisabling ampermeter disconnecting
-String Version = "2.1.3";
+String Version = "2.2.0";
 //========Update
 #include "Update.h"
 #include "AESLib.h"
@@ -171,7 +171,7 @@ bool overCrntFlg = false;
 int DFLT_V_CAL = 120;
 int DFLT_A0_CAL = 47;
 int DFLT_A_CAL = 50;
-int DFLT_A2_CAL = 60;
+int DFLT_A2_CAL = 100;
 int DFLT_BATT_CAP = 100;
 int DFLT_PT_MV_CAL = 585;
 int DFLT_BATT_FULL_VOLT = 135;
@@ -644,7 +644,7 @@ void I2C_SENSORS_TASK(void *parameters)
       }
     }
 
-    if (cntr % HUM_INTERVAL == 0)
+    if (cntr % HUM_INTERVAL == 0 && xrtLcns->isActive(xrtLcns->humLcns))
     {
       if (mainHumSensor == ADD_BMP280)
       {
@@ -675,6 +675,7 @@ void Reg_Uptime_Task(void *parameters)
 {
   if (!xrtLcns->openLog())
   {
+
     Serial.println("Error opening or creating Lisence file");
     vTaskDelete(NULL);
   }
@@ -803,7 +804,7 @@ void MeasurmentTask(void *parameters)
     {
       setRelPWM(REL_HOLD_VOLTAGE, v / 10);
     }
-    /* -----------reading and filtering is done in adcReadingTask*/
+    /* -----------reading and filtering is done in ADC_readingTask*/
     a0 = ((amp0 - amp0Offset) * A0calCo);
     if (ampSenisConnected)
     {
@@ -1039,77 +1040,117 @@ void MainStringProcessTask(void *parameters)
     }
     else if (!strcmp(mainRxStr, "AmperOffset"))
     {
-      if (ampSenisConnected)
+      if (xrtLcns->isActive(xrtLcns->crntLcns))
       {
-        amp1Offset = amp1;
-        EEPROM.writeFloat(E2ADD.ampOffsetSave, amp1Offset);
-        EEPROM.commit();
-        sprintf(str, "show.txt=\"amp1Offset=%f\"\xFF\xFF\xFF", amp1Offset);
-        SendToAll(str);
+        if (ampSenisConnected)
+        {
+          amp1Offset = amp1;
+          EEPROM.writeFloat(E2ADD.ampOffsetSave, amp1Offset);
+          EEPROM.commit();
+          sprintf(str, "show.txt=\"amp1Offset=%f\"\xFF\xFF\xFF", amp1Offset);
+          SendToAll(str);
+        }
+        else
+        {
+          SendToAll("XrouteAlarm=No External Ampermeter Detected !\xFF\xFF\xFF");
+        }
       }
       else
       {
-        SendToAll("XrouteAlarm=No External Ampermeter Detected !\xFF\xFF\xFF");
+        SendToAll("XrouteAlarm=ERROR: No Current Sensor License!\xFF\xFF\xFF");
       }
     }
     else if (strncmp(mainRxStr, "ACalTo=", 7) == 0)
     {
-      if (ampSenisConnected)
+      if (xrtLcns->isActive(xrtLcns->crntLcns))
       {
-        Serial.println(mainRxStr);
-        A1calCo = (float)atoi(mainRxStr + 7) / (amp1Offset - amp1);
-        EEPROM.writeFloat(E2ADD.AcalCoSave, A1calCo);
-        EEPROM.commit();
-        sprintf(str, "show.txt=\"A1calCo=%f\"\xFF\xFF\xFF", A1calCo);
-        SendToAll(str);
+        if (ampSenisConnected)
+        {
+          Serial.println(mainRxStr);
+          A1calCo = (float)atoi(mainRxStr + 7) / (amp1Offset - amp1);
+          EEPROM.writeFloat(E2ADD.AcalCoSave, A1calCo);
+          EEPROM.commit();
+          sprintf(str, "show.txt=\"A1calCo=%f\"\xFF\xFF\xFF", A1calCo);
+          SendToAll(str);
+        }
+        else
+        {
+          SendToAll("XrouteAlarm=No External Ampermeter Detected !\xFF\xFF\xFF");
+        }
       }
       else
       {
-        SendToAll("XrouteAlarm=No External Ampermeter Detected !\xFF\xFF\xFF");
+        SendToAll("XrouteAlarm=ERROR: No Current Sensor License!\xFF\xFF\xFF");
       }
     }
     else if (!strcmp(mainRxStr, "AmperCalibrate"))
     {
-      if (ampSenisConnected)
+      if (xrtLcns->isActive(xrtLcns->crntLcns))
       {
-        A1calCo = DFLT_A_CAL / (amp1Offset - amp1);
-        EEPROM.writeFloat(E2ADD.AcalCoSave, A1calCo);
-        EEPROM.commit();
-        sprintf(str, "show.txt=\"A1calCo=%f\"\xFF\xFF\xFF", A1calCo);
-        SendToAll(str);
+        if (ampSenisConnected)
+        {
+          A1calCo = DFLT_A_CAL / (amp1Offset - amp1);
+          EEPROM.writeFloat(E2ADD.AcalCoSave, A1calCo);
+          EEPROM.commit();
+          sprintf(str, "show.txt=\"A1calCo=%f\"\xFF\xFF\xFF", A1calCo);
+          SendToAll(str);
+        }
+        else
+        {
+          SendToAll("XrouteAlarm=No External Ampermeter Detected !\xFF\xFF\xFF");
+        }
       }
       else
       {
-        SendToAll("XrouteAlarm=No External Ampermeter Detected !\xFF\xFF\xFF");
+        SendToAll("XrouteAlarm=ERROR: No Current Sensor License!\xFF\xFF\xFF");
       }
     }
     else if (!strcmp(mainRxStr, "AmperCalibratePlus"))
     {
-      if (ampSenisConnected)
+      if (xrtLcns->isActive(xrtLcns->crntLcns) && ampSenisConnected)
       {
-        A1calCo = DFLT_A_CAL / (amp1 - amp1Offset);
+        if (ampSenisConnected)
+        {
+          A1calCo = DFLT_A_CAL / (amp1 - amp1Offset);
 
-        EEPROM.writeFloat(E2ADD.AcalCoSave, A1calCo);
-        EEPROM.commit();
+          EEPROM.writeFloat(E2ADD.AcalCoSave, A1calCo);
+          EEPROM.commit();
+        }
+        else
+        {
+          SendToAll("XrouteAlarm=No External Ampermeter Detected !\xFF\xFF\xFF");
+        }
       }
       else
       {
-        SendToAll("XrouteAlarm=No External Ampermeter Detected !\xFF\xFF\xFF");
+        SendToAll("XrouteAlarm=ERROR: No Current Sensor License!\xFF\xFF\xFF");
       }
     }
     else if (!strcmp(mainRxStr, "AmperCalibrate++"))
     {
-
-      DFLT_A_CAL++;
-      sprintf(str, "Acal.val=%d\xFF\xFF\xFF", DFLT_A_CAL);
-      SendToAll(str);
+      if (xrtLcns->isActive(xrtLcns->crntLcns))
+      {
+        DFLT_A_CAL++;
+        sprintf(str, "Acal.val=%d\xFF\xFF\xFF", DFLT_A_CAL);
+        SendToAll(str);
+      }
+      else
+      {
+        SendToAll("XrouteAlarm=ERROR: No Current Sensor License!\xFF\xFF\xFF");
+      }
     }
     else if (!strcmp(mainRxStr, "AmperCalibrate--"))
     {
-
-      DFLT_A_CAL--;
-      sprintf(str, "Acal.val=%d\xFF\xFF\xFF", DFLT_A_CAL);
-      SendToAll(str);
+      if (xrtLcns->isActive(xrtLcns->crntLcns))
+      {
+        DFLT_A_CAL--;
+        sprintf(str, "Acal.val=%d\xFF\xFF\xFF", DFLT_A_CAL);
+        SendToAll(str);
+      }
+      else
+      {
+        SendToAll("XrouteAlarm=ERROR: No Current Sensor License!\xFF\xFF\xFF");
+      }
     }
     else if (!strcmp(mainRxStr, "Amper0Offset"))
     {
@@ -1158,48 +1199,87 @@ void MainStringProcessTask(void *parameters)
     }
     else if (!strcmp(mainRxStr, "Amper2Offset"))
     {
-      amp2Offset = amp2;
-
-      EEPROM.writeFloat(E2ADD.amp2OffsetSave, amp2Offset);
-      EEPROM.commit();
-      sprintf(str, "show.txt=\"amp2Offset=%f\"\xFF\xFF\xFF", amp2Offset);
-      SendToAll(str);
+      if (xrtLcns->isActive(xrtLcns->gasLcns))
+      {
+        amp2Offset = amp2;
+        EEPROM.writeFloat(E2ADD.amp2OffsetSave, amp2Offset);
+        EEPROM.commit();
+        sprintf(str, "show.txt=\"amp2Offset=%f\"\xFF\xFF\xFF", amp2Offset);
+        SendToAll(str);
+      }
+      else
+      {
+        SendToAll("XrouteAlarm=ERROR: No Gas Sensor License!\xFF\xFF\xFF");
+      }
     }
     else if (strncmp(mainRxStr, "A2CalTo=", 8) == 0)
     {
-      A2calCo = (float)atoi(mainRxStr + 8) / (amp2Offset - amp2);
-      EEPROM.writeFloat(E2ADD.A2calCoSave, A2calCo);
-      EEPROM.commit();
-      sprintf(str, "show.txt=\"A2calCo=%f\"\xFF\xFF\xFF", A2calCo);
-      SendToAll(str);
+      if (xrtLcns->isActive(xrtLcns->gasLcns))
+      {
+        A2calCo = (float)atoi(mainRxStr + 8) / (amp2Offset - amp2);
+        EEPROM.writeFloat(E2ADD.A2calCoSave, A2calCo);
+        EEPROM.commit();
+        sprintf(str, "show.txt=\"A2calCo=%f\"\xFF\xFF\xFF", A2calCo);
+        SendToAll(str);
+      }
+      else
+      {
+        SendToAll("XrouteAlarm=ERROR: No Gas Sensor License!\xFF\xFF\xFF");
+      }
     }
     else if (!strcmp(mainRxStr, "Amper2Calibrate"))
     {
-      A2calCo = DFLT_A2_CAL / (amp2Offset - amp2);
-
-      EEPROM.writeFloat(E2ADD.A2calCoSave, A2calCo);
-      EEPROM.commit();
-      sprintf(str, "show.txt=\"A2calCo=%f\"\xFF\xFF\xFF", A2calCo);
-      SendToAll(str);
+      if (xrtLcns->isActive(xrtLcns->gasLcns))
+      {
+        A2calCo = DFLT_A2_CAL / (amp2Offset - amp2);
+        EEPROM.writeFloat(E2ADD.A2calCoSave, A2calCo);
+        EEPROM.commit();
+        sprintf(str, "show.txt=\"A2calCo=%f\"\xFF\xFF\xFF", A2calCo);
+        SendToAll(str);
+      }
+      else
+      {
+        SendToAll("XrouteAlarm=ERROR: No Gas Sensor License!\xFF\xFF\xFF");
+      }
     }
     else if (!strcmp(mainRxStr, "Amper2CalibratePlus"))
     {
-      A2calCo = DFLT_A2_CAL / (amp2 - amp2Offset);
-
-      EEPROM.writeFloat(E2ADD.A2calCoSave, A2calCo);
-      EEPROM.commit();
+      if (xrtLcns->isActive(xrtLcns->gasLcns))
+      {
+        A2calCo = DFLT_A2_CAL / (amp2 - amp2Offset);
+        EEPROM.writeFloat(E2ADD.A2calCoSave, A2calCo);
+        EEPROM.commit();
+      }
+      else
+      {
+        SendToAll("XrouteAlarm=ERROR: No Gas Sensor License!\xFF\xFF\xFF");
+      }
     }
     else if (!strcmp(mainRxStr, "Amper2Calibrate++"))
     {
-      DFLT_A2_CAL++;
-      sprintf(str, "A2cal.val=%d\xFF\xFF\xFF", DFLT_A2_CAL);
-      SendToAll(str);
+      if (xrtLcns->isActive(xrtLcns->gasLcns))
+      {
+        DFLT_A2_CAL++;
+        sprintf(str, "A2cal.val=%d\xFF\xFF\xFF", DFLT_A2_CAL);
+        SendToAll(str);
+      }
+      else
+      {
+        SendToAll("XrouteAlarm=ERROR: No Gas Sensor License!\xFF\xFF\xFF");
+      }
     }
     else if (!strcmp(mainRxStr, "Amper2Calibrate--"))
     {
-      DFLT_A2_CAL--;
-      sprintf(str, "A2cal.val=%d\xFF\xFF\xFF", DFLT_A2_CAL);
-      SendToAll(str);
+      if (xrtLcns->isActive(xrtLcns->gasLcns))
+      {
+        DFLT_A2_CAL--;
+        sprintf(str, "A2cal.val=%d\xFF\xFF\xFF", DFLT_A2_CAL);
+        SendToAll(str);
+      }
+      else
+      {
+        SendToAll("XrouteAlarm=ERROR: No Gas Sensor License!\xFF\xFF\xFF");
+      }
     }
     else if (!strcmp(mainRxStr, "BattCapCalibrate++"))
     {
@@ -1520,24 +1600,31 @@ void MainStringProcessTask(void *parameters)
     }
     else if (!strcmp(mainRxStr, "AccelZeroOffset"))
     {
-      uint timeout = 200;
-      GyroOffsetingFlg = true;
-      while (GyroOffsetingFlg && --timeout > 0)
-        vTaskDelay(10 / portTICK_PERIOD_MS);
-      EEPROM.writeFloat(E2ADD.accXValueOffsetSave, accXValue);
-      EEPROM.writeFloat(E2ADD.accYValueOffsetSave, accYValue);
-      EEPROM.commit();
-      accXValueOffset = EEPROM.readFloat(E2ADD.accXValueOffsetSave);
-      accYValueOffset = EEPROM.readFloat(E2ADD.accYValueOffsetSave);
-      if (timeout)
+      if (xrtLcns->isActive(xrtLcns->gyroLcns))
       {
-        sprintf(str, "XrouteAlarm=accXValueOffset=%f,accYValueOffset=%f\xFF\xFF\xFF", accXValueOffset, accYValueOffset);
+        uint timeout = 200;
+        GyroOffsetingFlg = true;
+        while (GyroOffsetingFlg && --timeout > 0)
+          vTaskDelay(10 / portTICK_PERIOD_MS);
+        EEPROM.writeFloat(E2ADD.accXValueOffsetSave, accXValue);
+        EEPROM.writeFloat(E2ADD.accYValueOffsetSave, accYValue);
+        EEPROM.commit();
+        accXValueOffset = EEPROM.readFloat(E2ADD.accXValueOffsetSave);
+        accYValueOffset = EEPROM.readFloat(E2ADD.accYValueOffsetSave);
+        if (timeout)
+        {
+          sprintf(str, "XrouteAlarm=accXValueOffset=%f,accYValueOffset=%f\xFF\xFF\xFF", accXValueOffset, accYValueOffset);
+        }
+        else
+        {
+          sprintf(str, "XrouteAlarm=Try again please!\xFF\xFF\xFF");
+        }
+        SendToAll(str);
       }
       else
       {
-        sprintf(str, "XrouteAlarm=Try again please!\xFF\xFF\xFF");
+        SendToAll("XrouteAlarm=ERROR: No Gyro Sensor License!\xFF\xFF\xFF");
       }
-      SendToAll(str);
     }
     else if (!strcmp(mainRxStr, "GiveMeSysInfo"))
     {
@@ -2194,7 +2281,7 @@ void DimerTask(void *parameters)
     }
   }
 }
-void adcReadingTask(void *parameters)
+void ADC_readingTask(void *parameters)
 {
   int cntr = 0;
   float lastPT100 = 0;
@@ -2226,8 +2313,23 @@ void adcReadingTask(void *parameters)
     }
 
     amp0 = ADC_LPF(AMPER0_MUX_IN, 15, amp0, 0.995);
-    amp1 = ADC_LPF(AMPER_MUX_IN, 15, amp1, 0.995);
-    amp2 = ADC_LPF(AIR_QUALITY_MUX_IN, 5, amp2, 0.995);
+    if (xrtLcns->isActive(xrtLcns->crntLcns))
+    {
+      amp1 = ADC_LPF(AMPER_MUX_IN, 15, amp1, 0.995);
+    }
+    else
+    {
+      amp1 = 0;
+    }
+    if (xrtLcns->isActive(xrtLcns->gasLcns))
+    {
+      amp2 = ADC_LPF(AIR_QUALITY_MUX_IN, 5, amp2, 0.995);
+    }
+    else
+    {
+      amp2 = 0;
+    }
+
     clnWtr = ADC_LPF(GAUGE1_MUX_IN, 15, clnWtr, 0.995);
     drtWtr = ADC_LPF(GAUGE2_MUX_IN, 15, drtWtr, 0.995);
     gryWtr = ADC_LPF(GAUGE3_MUX_IN, 15, gryWtr, 0.995);
@@ -2508,7 +2610,7 @@ void BatteryTask(void *parameters)
 
     // it means eather sensor is connected or charging is lokily is under +40Amps. so need to decet sensor some how else later
 
-    if (ampSenisConnected)
+    if (ampSenisConnected && xrtLcns->isActive(xrtLcns->crntLcns))
     {
       myBattery.setPercent(myBattery.getBtPerV());
       b = myBattery.getPercent() * 100;
@@ -2527,7 +2629,7 @@ void BatteryTask(void *parameters)
 void defaultCalibrations()
 {
   char str[128];
-
+  EEPROM.writeInt(E2ADD.gasRelaySave, gasRelayDeflt);
   EEPROM.writeFloat(E2ADD.lowVoltageSave, lowVoltageDeflt);
   EEPROM.writeInt(E2ADD.lowVoltageRelaysSave, lowVoltageRelaysDeflt);
   EEPROM.writeInt(E2ADD.lowVoltageDimersSave, lowVoltageDimersDeflt);
@@ -2604,43 +2706,45 @@ void GasTask(void *parameters)
   }
   for (;;)
   {
-    if (a2 > 20)
+    if (xrtLcns->isActive(xrtLcns->gasLcns))
     {
-      if (gasRelay >= 1 && gasRelay <= 12)
+      if (a2 > 20)
       {
-        if (relState_0_15(gasRelay - 1) == true)
+        if (gasRelay >= 1 && gasRelay <= 12)
         {
-          char str[8];
-          sprintf(str, "sw%d\n", gasRelay);
-          Serial.print(String("GAS:") + String(str));
-          sendCmndToMainStringProcessorTask(str);
+          if (relState_0_15(gasRelay - 1) == true)
+          {
+            char str[8];
+            sprintf(str, "sw%d\n", gasRelay);
+            Serial.print(String("GAS:") + String(str));
+            sendCmndToMainStringProcessorTask(str);
+          }
+        }
+        else if (gasRelay >= 13 && gasRelay <= 16)
+        {
+          if (relState_0_15(gasRelay - 1) == false)
+          {
+            char str[8];
+            sprintf(str, "sw%d\n", gasRelay);
+            Serial.print(String("GAS:") + String(str));
+            sendCmndToMainStringProcessorTask(str);
+          }
         }
       }
-      else if (gasRelay >= 13 && gasRelay <= 16)
+      else
       {
-        if (relState_0_15(gasRelay - 1) == false)
+        if (gasRelay >= 13 && gasRelay <= 16)
         {
-          char str[8];
-          sprintf(str, "sw%d\n", gasRelay);
-          Serial.print(String("GAS:") + String(str));
-          sendCmndToMainStringProcessorTask(str);
+          if (relState_0_15(gasRelay - 1) == true)
+          {
+            char str[8];
+            sprintf(str, "sw%d\n", gasRelay);
+            Serial.print(String("GAS:") + String(str));
+            sendCmndToMainStringProcessorTask(str);
+          }
         }
       }
     }
-    else
-    {
-      if (gasRelay >= 13 && gasRelay <= 16)
-      {
-        if (relState_0_15(gasRelay - 1) == true)
-        {
-          char str[8];
-          sprintf(str, "sw%d\n", gasRelay);
-          Serial.print(String("GAS:") + String(str));
-          sendCmndToMainStringProcessorTask(str);
-        }
-      }
-    }
-
     // Serial.println(a2);
     vTaskDelay(pdTICKS_TO_MS(1000));
   }
@@ -2744,7 +2848,7 @@ void setup()
       4,          // task priority
       &DimerTask_handle);
   xTaskCreate(
-      adcReadingTask,
+      ADC_readingTask,
       "ADC READING TASK",
       3 * 1024, // stack size
       NULL,     // task argument
@@ -2969,6 +3073,8 @@ void dimmerShortCircuitIntrupt()
 // END----------------------------------------------FUNCTIONS
 //+++++++++++++++++++++++TO DO
 //* ALI: namayeshgare gyro tooye home ham bayad scale beshe eyne too wizard
+// A2 beshe gaz va too advance ham gaz dide beshe va % beshe
+
 // ezafe kardane arayeyi az sw haye salem o sukhte too servis / dimerha ham
 // *baraye har kodum default benevis
 // dakhele loope Vcal to ya dakhele loope Tcal to infinit loop nabayad beshe

@@ -1,3 +1,4 @@
+const int gasRelayDeflt=17;
 const double lowVoltageDeflt = 10.0 * 10;
 const int lowVoltageRelaysDeflt = 0b0000000000000000;
 const int lowVoltageDimersDeflt = 0b0000000;
