@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <SPIFFS.h>
+#include"obfusKeys.h"
 
 class RegDev
 {

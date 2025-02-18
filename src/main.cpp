@@ -2753,7 +2753,9 @@ void setup()
 {
   Serial.begin(115200);
   // --------------------Work     Gyro     Hum    Current    Gas
-  xrtLcns = new RegDev("K3nY0", "8px7n", "tQ5Eb", "pdjtk", "Z3dPD", RegFilePath);
+  //xrtLcns = new RegDev("K3nY0", "8px7n", "tQ5Eb", "pdjtk", "Z3dPD", RegFilePath);
+  xrtLcns = new RegDev("aaa", "aaa", "aaaaa", "saman", "mohammadi", RegFilePath);
+
   xrtLizing = new Leasing(UpTimeFilePath);
 
   initRelay();

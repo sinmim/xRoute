@@ -1,20 +1,26 @@
 #include "licensing.h"
 #include <SHA256.h>
+#include "obfusKeys.h"
 
 // ===================== RegDev Implementation =====================
 RegDev::RegDev(String wrkLcnsScrtKey, String gyroLcnsScrtKey, String humLcnsScrtKey, String crntLcnsScrtKey, String gasLcnsScrtKey, String path)
 {
-    wrkLcns.generatedKey = genLis(wrkLcnsScrtKey);
-    wrkLcns.name = "Working License";
-    gyroLcns.generatedKey = genLis(gyroLcnsScrtKey);
-    gyroLcns.name = "Gyro License";
-    humLcns.generatedKey = genLis(humLcnsScrtKey);
-    humLcns.name = "Humidity License";
-    crntLcns.generatedKey = genLis(crntLcnsScrtKey);
-    crntLcns.name = "Current License";
-    gasLcns.generatedKey = genLis(gasLcnsScrtKey);
-    gasLcns.name = "Gas License";
     filePath = path;
+    wrkLcns.name = "Working License";
+    gyroLcns.name = "Gyro License";
+    humLcns.name = "Humidity License";
+    crntLcns.name = "Current License";
+    gasLcns.name = "Gas License";
+    // wrkLcns.generatedKey = genLis(wrkLcnsScrtKey);
+    // gyroLcns.generatedKey = genLis(gyroLcnsScrtKey);
+    // humLcns.generatedKey = genLis(humLcnsScrtKey);
+    // crntLcns.generatedKey = genLis(crntLcnsScrtKey);
+    // gasLcns.generatedKey = genLis(gasLcnsScrtKey);
+    wrkLcns.generatedKey = deobfuscate_rolling(obfWorKey).c_str();
+    gyroLcns.generatedKey = deobfuscate_rolling(obfGyrKey).c_str();
+    humLcns.generatedKey = deobfuscate_rolling(obfHumKey).c_str();
+    crntLcns.generatedKey = deobfuscate_rolling(obfCurKey).c_str();
+    gasLcns.generatedKey = deobfuscate_rolling(obfGasKey).c_str();
 }
 
 String RegDev::genLis(String secretKey)
@@ -142,7 +148,7 @@ bool RegDev::activate(regOptnsData &optn, String key)
     if (key == optn.generatedKey)
     {
         optn.status = true;
-        //Serial.println("KEY IS OK!");
+        // Serial.println("KEY IS OK!");
         writeValueToString(logContent, optn.name, key);
         savelog();
         return true;
@@ -207,7 +213,7 @@ bool Leasing::openLog()
     {
         loadTime(uptime);
         loadTime(expTime);
-        //printing log content
+        // printing log content
         Serial.println("//*****************inside logContent");
         Serial.println(logContent);
         Serial.println("//*****************values");
