@@ -3,7 +3,7 @@
 #include "obfusKeys.h"
 
 // ===================== RegDev Implementation =====================
-RegDev::RegDev(String wrkLcnsScrtKey, String gyroLcnsScrtKey, String humLcnsScrtKey, String crntLcnsScrtKey, String gasLcnsScrtKey, String path)
+RegDev::RegDev(String path)
 {
     filePath = path;
     wrkLcns.name = "Working License";
@@ -11,16 +11,11 @@ RegDev::RegDev(String wrkLcnsScrtKey, String gyroLcnsScrtKey, String humLcnsScrt
     humLcns.name = "Humidity License";
     crntLcns.name = "Current License";
     gasLcns.name = "Gas License";
-    // wrkLcns.generatedKey = genLis(wrkLcnsScrtKey);
-    // gyroLcns.generatedKey = genLis(gyroLcnsScrtKey);
-    // humLcns.generatedKey = genLis(humLcnsScrtKey);
-    // crntLcns.generatedKey = genLis(crntLcnsScrtKey);
-    // gasLcns.generatedKey = genLis(gasLcnsScrtKey);
-    wrkLcns.generatedKey = deobfuscate_rolling(obfWorKey).c_str();
-    gyroLcns.generatedKey = deobfuscate_rolling(obfGyrKey).c_str();
-    humLcns.generatedKey = deobfuscate_rolling(obfHumKey).c_str();
-    crntLcns.generatedKey = deobfuscate_rolling(obfCurKey).c_str();
-    gasLcns.generatedKey = deobfuscate_rolling(obfGasKey).c_str();
+    wrkLcns.generatedKey = genLis(deobfuscate_rolling(obfWorKey).c_str());
+    gyroLcns.generatedKey = genLis(deobfuscate_rolling(obfGyrKey).c_str());
+    humLcns.generatedKey = genLis(deobfuscate_rolling(obfHumKey).c_str());
+    crntLcns.generatedKey = genLis(deobfuscate_rolling(obfCurKey).c_str());
+    gasLcns.generatedKey = genLis(deobfuscate_rolling(obfGasKey).c_str());
 }
 
 String RegDev::genLis(String secretKey)

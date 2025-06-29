@@ -34,22 +34,6 @@
 #define __________________________________________VAR_DEF
 #ifdef __________________________________________VAR_DEF
 //*******************VERSION CONTROLS
-/* 1.0.3
- 1-external ampermeter activated
- 2-default calibration for each value added
- 3-pt100 easy calibration
- 4-loading DFLT values after defaultCalib.. function
- 5-DIFFERENT FREQUANCY PWM
- 6-DIMMER short circuit detection
- 7-low power mode active
- 8-low power mode in battery percent
- 9-battery type selection by Full voltage
- 10-gyro zeroing fast
-*/
-// 2.0.7/4.0.7 increasing tasks ram by 1KB to prevent crashing : not tested
-// String Version = "4.0.7"; 24V version
-// 2.0.8 adding save to file for state recovery after crashes
-// 2.1.0 deisabling ampermeter disconnecting
 String Version = "2.2.0";
 //========Update
 #include "Update.h"
@@ -2752,10 +2736,7 @@ void GasTask(void *parameters)
 void setup()
 {
   Serial.begin(115200);
-  // --------------------Work     Gyro     Hum    Current    Gas
-  //xrtLcns = new RegDev("K3nY0", "8px7n", "tQ5Eb", "pdjtk", "Z3dPD", RegFilePath);
-  xrtLcns = new RegDev("aaa", "aaa", "aaaaa", "saman", "mohammadi", RegFilePath);
-
+  xrtLcns = new RegDev(RegFilePath);
   xrtLizing = new Leasing(UpTimeFilePath);
 
   initRelay();

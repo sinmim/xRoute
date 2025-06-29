@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 #include <SPIFFS.h>
-#include"obfusKeys.h"
+#include "obfusKeys.h"
 
 class RegDev
 {
@@ -28,7 +28,7 @@ private:
 
 public:
     regOptnsData wrkLcns, gyroLcns, humLcns, crntLcns, gasLcns;
-    RegDev(String wrkLcnsScrtKey, String gyroLcnsScrtKey, String humLcnsScrtKey, String crntLcnsScrtKey, String gasLcns, String path);
+    RegDev(String path);
     bool openLog();
     bool isActive(regOptnsData &opt);
     bool activate(regOptnsData &optn, String key);
@@ -70,13 +70,13 @@ public:
     {
         uint64_t sec = optn.value * 600;
         uint64_t years = sec / (365 * 24 * 3600);
-        sec %= (365 * 24 * 3600); // Remove years from total seconds
+        sec %= (365 * 24 * 3600);                 // Remove years from total seconds
         uint64_t months = sec / (30 * 24 * 3600); // Approximate month length
         sec %= (30 * 24 * 3600);                  // Remove months from total seconds
         uint64_t days = sec / (24 * 3600);
         sec %= (24 * 3600); // Remove days from total seconds
         uint64_t hours = sec / 3600;
-        sec %= 3600; // Remove hours from total seconds
+        sec %= 3600;                 // Remove hours from total seconds
         uint64_t minutes = sec / 60; // Remaining minutes
 
         return optn.name + ": " + String(years) + "Y: " + String(months) + "M: " +
