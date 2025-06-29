@@ -2,7 +2,7 @@
 #include <esp_system.h>
 #include <WiFi.h>
 #include <SHA256.h>
-#include "othedFunctions.h"
+#include "otherFunctions.h"
 #include "relay.h"
 #include "BLESerial.h"
 #include "BluetoothSerial.h"
@@ -175,4 +175,21 @@ String readStringFromFile(String path)
     file.close();
     return fileContent;
   }
+}
+
+String getRelsStatStr()
+{
+    String str = "";
+    for (int i = 0; i < 16; i++)
+    {
+        if (relState_0_15(i))
+        {
+            str += "1";
+        }
+        else
+        {
+            str += "0";
+        }
+    }
+    return str;
 }

@@ -11,6 +11,11 @@ RegDev::RegDev(String path)
     humLcns.name = "Humidity License";
     crntLcns.name = "Current License";
     gasLcns.name = "Gas License";
+    // wrkLcns.generatedKey = genLis(wrkLcnsScrtKey);
+    // gyroLcns.generatedKey = genLis(gyroLcnsScrtKey);
+    // humLcns.generatedKey = genLis(humLcnsScrtKey);
+    // crntLcns.generatedKey = genLis(crntLcnsScrtKey);
+    // gasLcns.generatedKey = genLis(gasLcnsScrtKey);
     wrkLcns.generatedKey = genLis(deobfuscate_rolling(obfWorKey).c_str());
     gyroLcns.generatedKey = genLis(deobfuscate_rolling(obfGyrKey).c_str());
     humLcns.generatedKey = genLis(deobfuscate_rolling(obfHumKey).c_str());

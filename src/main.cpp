@@ -11,7 +11,7 @@
 #include <BLESerial.h>
 #include <BLEDevice.h>
 #include "relay.h"
-#include "othedFunctions.h"
+#include "otherFunctions.h"
 #include "ledPwm.h"
 #include "dsp.h"
 #include "adc.h"
@@ -262,7 +262,37 @@ void testModeSelectorTask(void *parameters)
           break;
         }
       }
-      ws2812Blink(COLOR_GREEN | COLOR_BLUE);
+      // slow
+      {
+        ws2812Blink(COLOR_GREEN);
+        while (1)
+        {
+          RELAYS.relPos = 0xFFFF;
+          setRelay(RELAYS.relPos, v / 10);
+          for (int i = 0; i < 10; i++)
+          {
+            vTaskDelay(pdMS_TO_TICKS(500));
+            if (KEY_PRESSED)
+              break;
+          }
+
+          RELAYS.relPos = 0X0000;
+          setRelay(RELAYS.relPos, v / 10);
+          for (int i = 0; i < 10; i++)
+          {
+            vTaskDelay(pdMS_TO_TICKS(500));
+            if (KEY_PRESSED)
+              break;
+          }
+
+          if (KEY_PRESSED)
+          {
+            break;
+          }
+        }
+      }
+      // INTERMEDIATE
+      ws2812Blink(COLOR_GREEN);
       while (1)
       {
         RELAYS.relPos = 0xFFFF;
@@ -276,6 +306,24 @@ void testModeSelectorTask(void *parameters)
           break;
         }
       }
+      // fast
+      {
+        ws2812Blink(COLOR_BLUE);
+        while (1)
+        {
+          RELAYS.relPos = 0xFFFF;
+          setRelay(RELAYS.relPos, v / 10);
+          vTaskDelay(pdMS_TO_TICKS(20));
+          RELAYS.relPos = 0X0000;
+          setRelay(RELAYS.relPos, v / 10);
+          vTaskDelay(pdMS_TO_TICKS(20));
+          if (KEY_PRESSED)
+          {
+            break;
+          }
+        }
+      }
+
       ws2812Blink(COLOR_RED | COLOR_BLUE);
       while (1)
       {
@@ -855,6 +903,10 @@ void MeasurmentTask(void *parameters)
     SendToAll(str);
     sprintf(str, "M.BattHourLeft.val=%d\xFF\xFF\xFF", (int)battHourLeft / 10);
     SendToAll(str);
+    // small lcd
+    // SendToAll("\n");
+    // String strTmp = "RELS=" + getRelsStatStr() + "\n";
+    // SendToAll(strTmp.c_str());
     vTaskDelay(200 / portTICK_PERIOD_MS);
   }
 }
@@ -2091,6 +2143,9 @@ void MainStringProcessTask(void *parameters)
     else if (strstr(mainRxStr, "ADMIN=")) // if contains ADMIN
     {
       //----IMPORTANT NOTE : BOTH IS VALID USAGE
+      // ADMIN=0E214CCF2521FDB7,CMD=SET_EXP_TIME_10Y
+      // ADMIN=0E214CCF2521FDB7,CMD=SET_EXP_TIME_10Y
+
       // Example Input: "Admin=1234567890ABCDEF,CMD=SET_UP_TIME,VAL=300\n"
       // Example Input: "GyroPass:Admin=1234567890ABCDEF,CMD=SET_UP_TIME,VAL=300\n"
 
@@ -2736,8 +2791,6 @@ void GasTask(void *parameters)
 void setup()
 {
   Serial.begin(115200);
-  xrtLcns = new RegDev(RegFilePath);
-  xrtLizing = new Leasing(UpTimeFilePath);
 
   initRelay();
   initLED_PWM();
@@ -2765,6 +2818,10 @@ void setup()
   {
     Serial.println("SPIFF ERROR !");
   }
+
+  // TODO: elate inke dafe dovom banafsh mishe ine ke bedoone format dari register load mikoni : avordamesh alan payin bebinim chi mishe
+  xrtLcns = new RegDev(RegFilePath);
+  xrtLizing = new Leasing(UpTimeFilePath);
 
   uint32_t flashSize = ESP.getFlashChipSize();
   // Convert flash size from bytes to megabytes
