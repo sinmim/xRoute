@@ -3138,3 +3138,4 @@ void dimmerShortCircuitIntrupt()
 
 // problems
 //  i dont send the value from APDIM to other BLE devices in line 920
+// voltaje bala bedim masalan 36 v drivere rele mitereke , fek konam oon moghe ke 100% pwm midam baese terekidan mishe
