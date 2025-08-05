@@ -642,7 +642,7 @@ void I2C_SENSORS_TASK(void *parameters)
     }
 
     // Actual mesurments and filtering
-    if (cntr % BARO_INTERVAL == 0 && mainBarometer == ADD_INTERNAL_BAROMETER && xrtLcns->isActive(xrtLcns->humLcns) == true)
+    if (cntr % BARO_INTERVAL == 0 && mainBarometer == ADD_INTERNAL_BAROMETER && xrtLcns->isActive(xrtLcns->gyroLcns) == true)//&& xrtLcns->isActive(xrtLcns->humLcns) == true)
     {
       digitalAlt = psiToMeters(BARO.readPressure(PSI) - pressurCalOffset);
     }
