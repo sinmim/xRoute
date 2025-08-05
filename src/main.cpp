@@ -34,7 +34,7 @@
 #define __________________________________________VAR_DEF
 #ifdef __________________________________________VAR_DEF
 //*******************VERSION CONTROLS
-String Version = "2.2.1";
+String Version = "2.2.0";
 //========Update
 #include "Update.h"
 #include "AESLib.h"
