@@ -1,4 +1,4 @@
-const int gasRelayDeflt=17;
+const int gasRelayDeflt = 17;
 const double lowVoltageDeflt = 10.0 * 10;
 const int lowVoltageRelaysDeflt = 0b0000000000000000;
 const int lowVoltageDimersDeflt = 0b0000000;
@@ -29,3 +29,4 @@ const double battFullVoltageDeflt = 135;
 const double battEmptyVoltageDeflt = 119;
 const double cableResistanceDeflt = 0;
 const double dimLimitDeflt = 0.60;
+const bool dynamicRelControllerDeflt= true;

@@ -45,6 +45,7 @@ struct EEpromAdd
     int criticalVoltageRelaysSave = ADDRESS * 80;
     int criticalVoltageDimersSave = ADDRESS * 81;
     int gasRelaySave = ADDRESS * 82;
+    int dynamicRelControllerSave = ADDRESS * 83;
 
     int remoteKeysAddress[32] =
         {

@@ -34,7 +34,7 @@
 #define __________________________________________VAR_DEF
 #ifdef __________________________________________VAR_DEF
 //*******************VERSION CONTROLS
-String Version = "2.2.0";
+String Version = "2.2.1";
 //========Update
 #include "Update.h"
 #include "AESLib.h"
@@ -84,6 +84,7 @@ Freenove_ESP32_WS2812 strip = Freenove_ESP32_WS2812(LEDS_COUNT, LEDS_PIN, CHANNE
 
 int LED_COLOR = COLOR_OFF;
 void ws2812Blink(int color);
+
 //------------------------------------e2prom
 void loadSavedValue();
 EEpromAdd E2ADD;
@@ -192,6 +193,7 @@ uint8_t BattLowPrcntDimers = 0b0000000;
 float BattCriticalPrcnt = 10.0;
 uint16_t BattCriticalPrcntRelays = 0b0000000000000000;
 uint8_t BattCriticalPrcntDimers = 0b0000000;
+bool dynamicRelController = true;
 //----------------------GAS
 int gasRelay;
 //----------------------TEST
@@ -834,7 +836,10 @@ void MeasurmentTask(void *parameters)
     // Set relay voltages acording to powersupply
     if (relaySatat() == REL_FREE)
     {
-      setRelPWM(REL_HOLD_VOLTAGE, v / 10);
+      if (dynamicRelController)
+      {
+        setRelPWM(REL_HOLD_VOLTAGE, v / 10);
+      }
     }
     /* -----------reading and filtering is done in ADC_readingTask*/
     a0 = ((amp0 - amp0Offset) * A0calCo);
@@ -2142,61 +2147,78 @@ void MainStringProcessTask(void *parameters)
     }
     else if (strstr(mainRxStr, "ADMIN=")) // if contains ADMIN
     {
-      //----IMPORTANT NOTE : BOTH IS VALID USAGE
-      // ADMIN=0E214CCF2521FDB7,CMD=SET_EXP_TIME_10Y
-      // ADMIN=0E214CCF2521FDB7,CMD=SET_EXP_TIME_10Y
-
-      // Example Input: "Admin=1234567890ABCDEF,CMD=SET_UP_TIME,VAL=300\n"
-      // Example Input: "GyroPass:Admin=1234567890ABCDEF,CMD=SET_UP_TIME,VAL=300\n"
-
-      String strtmp = String(mainRxStr);
-      Serial.println("+++++++++++++++++++++++++++++++++++" + strtmp);
-      String licenseKey = strtmp.substring(strtmp.indexOf("ADMIN=") + 6, strtmp.indexOf(",CMD=")); // Extract key between "Admin=" and ",CMD="
-
-      if (licenseKey == xrtLcns->getKey(xrtLcns->wrkLcns)) // Validate license
+      if (strstr(mainRxStr, "DIS_DYNAMIC_REL_VOLT"))
       {
-        int cmdStart = strtmp.indexOf("CMD=") + 4;
-        int cmdEnd = strtmp.indexOf(",VAL=");
-        String CMD = strtmp.substring(cmdStart, cmdEnd); // Extract CMD between "CMD=" and ",VAL="
-
-        int valStart = cmdEnd + 5;               // Move past ",VAL="
-        String VAL = strtmp.substring(valStart); // Extract VAL
-        VAL.trim();                              // Remove any newline or extra spaces from VAL
-
-        if (CMD == "SET_UP_TIME")
-        {
-          xrtLizing->setTime(xrtLizing->uptime, VAL.toInt());
-          xrtLizing->saveTime(xrtLizing->uptime);
-        }
-        else if (CMD == "SET_EXP_TIME")
-        {
-          xrtLizing->setTime(xrtLizing->expTime, VAL.toInt());
-          xrtLizing->saveTime(xrtLizing->expTime);
-          xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
-        }
-        else if (CMD == "SET_EXP_TIME_60D")
-        {
-          xrtLizing->setTime(xrtLizing->expTime, 60 * 24 * 6);
-          xrtLizing->saveTime(xrtLizing->expTime);
-          xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
-        }
-        else if (CMD == "SET_EXP_TIME_90D")
-        {
-          xrtLizing->setTime(xrtLizing->expTime, 90 * 24 * 6);
-          xrtLizing->saveTime(xrtLizing->expTime);
-          xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
-        }
-        else if (CMD == "SET_EXP_TIME_10Y")
-        {
-          xrtLizing->setTime(xrtLizing->expTime, 10 * 365 * 24 * 6); // 10 years
-          xrtLizing->saveTime(xrtLizing->expTime);
-          xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
-        }
-        Serial.println("+++++++++++++++++++++++++++++++++++ END");
+        EEPROM.writeBool(E2ADD.dynamicRelControllerSave, false);
+        EEPROM.commit();
+        dynamicRelController = false;
+        SendToAll("XrouteAlarm=Dynamic Relay controller Disabled!\xFF\xFF\xFF");
+      }
+      else if (strstr(mainRxStr, "EN_DYNAMIC_REL_VOLT"))
+      {
+        EEPROM.writeBool(E2ADD.dynamicRelControllerSave, true);
+        EEPROM.commit();
+        dynamicRelController = true;
+        SendToAll("XrouteAlarm=Dynamic Relay controller Enabled!\xFF\xFF\xFF");
       }
       else
       {
-        Serial.println("ERROR: " + licenseKey + " ~ " + xrtLcns->getKey(xrtLcns->wrkLcns));
+        //----IMPORTANT NOTE : BOTH IS VALID USAGE
+        // ADMIN=0E214CCF2521FDB7,CMD=SET_EXP_TIME_10Y
+        // ADMIN=0E214CCF2521FDB7,CMD=SET_EXP_TIME_10Y
+
+        // Example Input: "Admin=1234567890ABCDEF,CMD=SET_UP_TIME,VAL=300\n"
+        // Example Input: "GyroPass:Admin=1234567890ABCDEF,CMD=SET_UP_TIME,VAL=300\n"
+
+        String strtmp = String(mainRxStr);
+        Serial.println("+++++++++++++++++++++++++++++++++++" + strtmp);
+        String licenseKey = strtmp.substring(strtmp.indexOf("ADMIN=") + 6, strtmp.indexOf(",CMD=")); // Extract key between "Admin=" and ",CMD="
+
+        if (licenseKey == xrtLcns->getKey(xrtLcns->wrkLcns)) // Validate license
+        {
+          int cmdStart = strtmp.indexOf("CMD=") + 4;
+          int cmdEnd = strtmp.indexOf(",VAL=");
+          String CMD = strtmp.substring(cmdStart, cmdEnd); // Extract CMD between "CMD=" and ",VAL="
+
+          int valStart = cmdEnd + 5;               // Move past ",VAL="
+          String VAL = strtmp.substring(valStart); // Extract VAL
+          VAL.trim();                              // Remove any newline or extra spaces from VAL
+
+          if (CMD == "SET_UP_TIME")
+          {
+            xrtLizing->setTime(xrtLizing->uptime, VAL.toInt());
+            xrtLizing->saveTime(xrtLizing->uptime);
+          }
+          else if (CMD == "SET_EXP_TIME")
+          {
+            xrtLizing->setTime(xrtLizing->expTime, VAL.toInt());
+            xrtLizing->saveTime(xrtLizing->expTime);
+            xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
+          }
+          else if (CMD == "SET_EXP_TIME_60D")
+          {
+            xrtLizing->setTime(xrtLizing->expTime, 60 * 24 * 6);
+            xrtLizing->saveTime(xrtLizing->expTime);
+            xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
+          }
+          else if (CMD == "SET_EXP_TIME_90D")
+          {
+            xrtLizing->setTime(xrtLizing->expTime, 90 * 24 * 6);
+            xrtLizing->saveTime(xrtLizing->expTime);
+            xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
+          }
+          else if (CMD == "SET_EXP_TIME_10Y")
+          {
+            xrtLizing->setTime(xrtLizing->expTime, 10 * 365 * 24 * 6); // 10 years
+            xrtLizing->saveTime(xrtLizing->expTime);
+            xrtLcns->activate(xrtLcns->wrkLcns, licenseKey);
+          }
+          Serial.println("+++++++++++++++++++++++++++++++++++ END");
+        }
+        else
+        {
+          Serial.println("ERROR: " + licenseKey + " ~ " + xrtLcns->getKey(xrtLcns->wrkLcns));
+        }
       }
     }
     else
@@ -2668,6 +2690,7 @@ void BatteryTask(void *parameters)
 void defaultCalibrations()
 {
   char str[128];
+  EEPROM.writeBool(E2ADD.dynamicRelControllerSave, dynamicRelControllerDeflt);
   EEPROM.writeInt(E2ADD.gasRelaySave, gasRelayDeflt);
   EEPROM.writeFloat(E2ADD.lowVoltageSave, lowVoltageDeflt);
   EEPROM.writeInt(E2ADD.lowVoltageRelaysSave, lowVoltageRelaysDeflt);
@@ -2958,6 +2981,7 @@ void loop()
 }
 void loadSavedValue()
 {
+  dynamicRelController = EEPROM.readBool(E2ADD.dynamicRelControllerSave);
   gasRelay = EEPROM.readInt(E2ADD.gasRelaySave);
   BatteryLowPrcnt = EEPROM.readFloat(E2ADD.lowVoltageSave);
   BatteryLowPrcntRelays = EEPROM.readInt(E2ADD.lowVoltageRelaysSave);
