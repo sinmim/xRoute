@@ -34,7 +34,7 @@
 #define __________________________________________VAR_DEF
 #ifdef __________________________________________VAR_DEF
 //*******************VERSION CONTROLS
-String Version = "2.2.0";
+String Version = "2.2.2";
 //========Update
 #include "Update.h"
 #include "AESLib.h"
@@ -44,9 +44,13 @@ long int updateLen;
 uint8_t dataBuff[CHUNK_SIZE];
 AESLib aes;
 // AES decryption key (16 bytes)
-uint8_t key[] = {53, 42, 12, 23, 72, 99, 33, 56, 12, 132, 38, 250, 180, 1, 2, 3};
+//uint8_t key[] = {53, 42, 12, 23, 72, 99, 33, 56, 12, 132, 38, 250, 180, 1, 2, 3};
+//in hex
+uint8_t key[] = {0x35, 0x2A, 0x0C, 0x17, 0x48, 0x63, 0x21, 0x38, 0x0C, 0x84, 0x26, 0xFA, 0xB4, 0x01, 0x02, 0x03};
 // IV for AES decryption (16 bytes)
-uint8_t iv[] = {3, 8, 2, 5, 0, 1, 8, 0, 9, 12, 79, 72, 3, 4, 6, 0};
+//uint8_t iv[] = {3, 8, 2, 5, 0, 1, 8, 0, 9, 12, 79, 72, 3, 4, 6, 0};
+//in hex
+uint8_t iv[] = {0x03, 0x08, 0x02, 0x05, 0x00, 0x01, 0x08, 0x00, 0x09, 0x12, 0x4F, 0x72, 0x03, 0x04, 0x06, 0x00};
 // Create an AES128 object for decryption
 // uint8_t key[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 //  IV for AES decryption (16 bytes)

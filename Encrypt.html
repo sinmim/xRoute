@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AES Binfile Encryptor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        code, pre {
+            font-family: 'Fira Code', monospace;
+        }
+        /* Custom styles for file input button */
+        input[type="file"]::file-selector-button {
+            background-color: #2d3748; /* gray-700 */
+            color: #e2e8f0; /* gray-200 */
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        input[type="file"]::file-selector-button:hover {
+            background-color: #4a5568; /* gray-600 */
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-2xl bg-gray-800 rounded-xl shadow-2xl p-6 md:p-8">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-cyan-400">AES Binfile Encryptor</h1>
+            <p class="text-gray-400 mt-2">Encrypts binary files using AES-128-CBC with PKCS#7 padding.</p>
+        </div>
+
+        <div class="space-y-6">
+            <div>
+                <label for="fileInput" class="block text-sm font-medium text-gray-300 mb-2">1. Select .bin File</label>
+                <input type="file" id="fileInput" accept=".bin" class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded-lg p-2 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-200">
+            </div>
+
+            <div id="fileInfo" class="hidden bg-gray-900 rounded-lg p-4">
+                 <p class="text-gray-400"><strong>Filename:</strong> <span id="fileName" class="text-yellow-400 font-semibold"></span></p>
+                 <p class="text-gray-400 mt-1"><strong>Original Size:</strong> <span id="fileSize" class="text-yellow-400 font-semibold"></span> bytes</p>
+            </div>
+
+            <div>
+                <label for="versionText" class="block text-sm font-medium text-gray-300 mb-2">2. Enter Version</label>
+                <input type="text" id="versionText" value="1.0.0" class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded-lg p-3 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-200" placeholder="e.g., 1.0.0">
+            </div>
+            
+            <div>
+                <label for="keyInput" class="block text-sm font-medium text-gray-300 mb-2">3. AES Key (16 bytes, Hex)</label>
+                <input type="text" id="keyInput" value="352A0C17486321380C8426FAB4010203" class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded-lg p-3 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-200 font-mono">
+            </div>
+
+            <div>
+                <label for="ivInput" class="block text-sm font-medium text-gray-300 mb-2">4. AES IV (16 bytes, Hex)</label>
+                <input type="text" id="ivInput" value="0308020500010800090C4F4803040600" class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded-lg p-3 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-200 font-mono">
+            </div>
+            
+            <button id="encryptButton" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-cyan-500/30 transition-all duration-300 transform hover:scale-105" disabled>
+                <i class="fas fa-lock mr-2"></i>Encrypt and Download
+            </button>
+        </div>
+
+        <div id="outputSection" class="mt-8 pt-6 border-t border-gray-700">
+            <h2 class="text-xl font-semibold text-gray-100 mb-3">Process Log</h2>
+            <div class="bg-gray-900 rounded-lg p-4">
+                <pre><code id="log" class="text-green-400 break-words whitespace-pre-wrap">Awaiting file selection...</code></pre>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const fileInputElement = document.getElementById('fileInput');
+        const encryptButton = document.getElementById('encryptButton');
+        const logElement = document.getElementById('log');
+        const fileInfoElement = document.getElementById('fileInfo');
+        
+        let fileBytes = null;
+        let originalFileName = '';
+
+        function log(message, isError = false) {
+            console.log(message);
+            logElement.style.color = isError ? '#f87171' : '#4ade80'; // red-400 or green-400
+            logElement.textContent = message;
+        }
+
+        fileInputElement.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                encryptButton.disabled = true;
+                fileInfoElement.classList.add('hidden');
+                log('File selection cancelled.', true);
+                return;
+            }
+
+            originalFileName = file.name;
+            document.getElementById('fileName').textContent = originalFileName;
+            document.getElementById('fileSize').textContent = file.size;
+            fileInfoElement.classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                fileBytes = new Uint8Array(e.target.result);
+                encryptButton.disabled = false;
+                log(`File "${originalFileName}" (${fileBytes.length} bytes) loaded successfully.`);
+            };
+            reader.onerror = () => {
+                log('Error reading file.', true);
+                encryptButton.disabled = true;
+                fileInfoElement.classList.add('hidden');
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        encryptButton.addEventListener('click', async () => {
+            if (!fileBytes) {
+                log('No file loaded to encrypt.', true);
+                return;
+            }
+
+            try {
+                log('Starting encryption...');
+                encryptButton.disabled = true;
+                
+                const keyHex = document.getElementById('keyInput').value.replace(/\s/g, '');
+                const ivHex = document.getElementById('ivInput').value.replace(/\s/g, '');
+                
+                if (keyHex.length !== 32) throw new Error('Key must be 32 hex characters (16 bytes).');
+                if (ivHex.length !== 32) throw new Error('IV must be 32 hex characters (16 bytes).');
+
+                const key = hexToBytes(keyHex);
+                const iv = hexToBytes(ivHex);
+
+                const cryptoKey = await window.crypto.subtle.importKey(
+                    "raw",
+                    key,
+                    { name: "AES-CBC", length: 128 },
+                    true,
+                    ["encrypt"]
+                );
+                log('AES key imported successfully.');
+
+                const encryptedData = await window.crypto.subtle.encrypt(
+                    { name: "AES-CBC", iv: iv },
+                    cryptoKey,
+                    fileBytes
+                );
+                
+                const logMessage = `Encryption complete.\nOriginal size: ${fileBytes.length} bytes\nEncrypted size: ${encryptedData.byteLength} bytes (includes PKCS#7 padding)`;
+                log(logMessage);
+
+                const version = document.getElementById('versionText').value || '1.0.0';
+                const originalSize = fileBytes.length;
+                const newFileName = `V${version}S${originalSize}.bin`;
+
+                downloadFile(encryptedData, newFileName);
+
+            } catch (error) {
+                log(`Encryption Failed: ${error.message}`, true);
+            } finally {
+                encryptButton.disabled = false;
+            }
+        });
+
+        function hexToBytes(hex) {
+            const bytes = new Uint8Array(hex.length / 2);
+            for (let i = 0; i < hex.length; i += 2) {
+                bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+            }
+            return bytes;
+        }
+
+        function downloadFile(data, filename) {
+            const blob = new Blob([data], { type: 'application/octet-stream' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+    </script>
+
+</body>
+</html>
